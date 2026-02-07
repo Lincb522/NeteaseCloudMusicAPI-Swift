@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "NCMDemo",
-    platforms: [.iOS(.v16), .macOS(.v13)],
+    platforms: [.iOS(.v17), .macOS(.v14)],
     dependencies: [
         .package(name: "NeteaseCloudMusicAPI", path: ".."),
     ],
