@@ -1,0 +1,37 @@
+name: NCMDemo
+options:
+  bundleIdPrefix: com.ncmdemo
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "15.0"
+  generateEmptyDirectories: false
+
+packages:
+  NeteaseCloudMusicAPI:
+    path: ..
+
+targets:
+  NCMDemo:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+    dependencies:
+      - package: NeteaseCloudMusicAPI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ncmdemo.app
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        INFOPLIST_GENERATION_MODE: GeneratedFile
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        SWIFT_VERSION: "5.9"
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "Apple Development"
+        DEVELOPMENT_TEAM: ""
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: YES

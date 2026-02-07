@@ -1,7 +1,9 @@
 # Xcode
-*.xcodeproj
 *.xcworkspace
 xcuserdata/
+# 保留 Example/NCMDemo.xcodeproj，排除其用户数据
+Example/NCMDemo.xcodeproj/xcuserdata/
+Example/NCMDemo.xcodeproj/project.xcworkspace/xcuserdata/
 *.xccheckout
 *.moved-aside
 *.hmap

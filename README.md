@@ -469,12 +469,14 @@ let result = try await client.songUrlNcmget(
 
 ## 示例应用
 
-`Example/` 目录包含一个完整的 iOS SwiftUI 示例应用：
+`Example/` 目录包含一个完整的 iOS SwiftUI 示例应用，附带标准 Xcode 工程文件，支持免签真机调试：
 
 ```bash
 cd Example
-swift run
+open NCMDemo.xcodeproj
 ```
+
+在 Xcode 中选择你的 iPhone，直接 `Cmd+R` 运行即可（免费 Apple ID 即可真机调试）。
 
 功能包括：
 - ⚙️ 设置 — 配置后端服务地址、Cookie、连接测试
