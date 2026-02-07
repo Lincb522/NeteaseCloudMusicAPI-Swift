@@ -22,6 +22,41 @@
 
 本 SDK 需要配合 [NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) 后端服务使用。请求发送到你部署的 Node 后端，由后端处理加密和转发。请先自行部署后端服务，然后通过 `NCMClient(serverUrl:)` 初始化客户端。
 
+### 关于直连加密
+
+SDK 也支持不部署后端，客户端直接加密请求网易云服务器：
+
+```swift
+// 直连模式，不传 serverUrl
+let client = NCMClient()
+```
+
+直连模式下 SDK 会自动选择加密方式（WeAPI / EAPI / LinuxAPI），与官方客户端行为一致。适合不想部署后端的场景，但部分功能可能受网易风控限制。
+
+### iOS ATS 注意事项
+
+!> 网易云音乐的部分资源 URL（如歌曲播放链接 `http://m*.music.126.net`）使用 HTTP 协议。iOS 默认的 App Transport Security (ATS) 会阻止 HTTP 请求，导致播放失败。
+
+需要在 Info.plist 中添加 ATS 例外：
+
+```xml
+<key>NSAppTransportSecurity</key>
+<dict>
+    <key>NSExceptionDomains</key>
+    <dict>
+        <key>music.126.net</key>
+        <dict>
+            <key>NSExceptionAllowsInsecureHTTPLoads</key>
+            <true/>
+            <key>NSIncludesSubdomains</key>
+            <true/>
+        </dict>
+    </dict>
+</dict>
+```
+
+如果使用直连模式，还需要添加 `163.com` 域名的例外（直连请求走 `interface.music.163.com`，虽然是 HTTPS，但部分重定向可能涉及 HTTP）。
+
 ### 关于 Cookie
 
 - 登录成功后，SDK 会自动管理 Cookie，后续请求会自动携带
@@ -84,6 +119,15 @@ dependencies: [
 
 ## 快速开始
 
+### 两种模式
+
+| 模式 | 初始化方式 | 说明 |
+|------|-----------|------|
+| 后端代理 | `NCMClient(serverUrl: "http://localhost:3000")` | 请求发送到你部署的 Node 后端 |
+| 直连加密 | `NCMClient()` | 客户端直接连接网易云服务器 |
+
+### 后端代理模式
+
 首先部署 [NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) 后端服务，然后：
 
 ```swift
@@ -104,6 +148,23 @@ print(detail.body)
 let lyric = try await client.lyric(id: 347230)
 print(lyric.body)
 ```
+
+### 直连加密模式
+
+无需部署后端，客户端直接加密请求网易云服务器：
+
+```swift
+import NeteaseCloudMusicAPI
+
+// 直连模式，不传 serverUrl
+let client = NCMClient()
+
+// 所有接口用法完全一致
+let result = try await client.cloudsearch(keywords: "周杰伦")
+print(result.body)
+```
+
+> 直连模式下 SDK 会自动选择加密方式（WeAPI / EAPI / LinuxAPI），与官方客户端行为一致。适合不想部署后端的场景，但部分功能可能受网易风控限制。
 
 ## 登录与 Cookie
 

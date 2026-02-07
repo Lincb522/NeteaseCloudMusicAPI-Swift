@@ -70,7 +70,34 @@ dependencies: [
 
 ## 快速开始
 
-首先部署 [NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) 后端服务，然后：
+### 两种模式
+
+| 模式 | 初始化方式 | 说明 |
+|------|-----------|------|
+| 后端代理 | `NCMClient(serverUrl: "http://localhost:3000")` | 请求发送到你部署的 Node 后端，由后端处理加密和转发 |
+| 直连加密 | `NCMClient()` | 客户端直接连接网易云服务器，内置四种加密模式 |
+
+> ⚠️ **iOS ATS 注意事项**：网易云音乐的部分资源 URL（如歌曲播放链接 `http://m*.music.126.net`）使用 HTTP 协议。iOS 默认的 App Transport Security 会阻止 HTTP 请求。需要在 Info.plist 中添加 ATS 例外：
+>
+> ```xml
+> <key>NSAppTransportSecurity</key>
+> <dict>
+>     <key>NSExceptionDomains</key>
+>     <dict>
+>         <key>music.126.net</key>
+>         <dict>
+>             <key>NSExceptionAllowsInsecureHTTPLoads</key>
+>             <true/>
+>             <key>NSIncludesSubdomains</key>
+>             <true/>
+>         </dict>
+>     </dict>
+> </dict>
+> ```
+
+### 后端代理模式
+
+部署 [NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) 后端服务，然后：
 
 ```swift
 import NeteaseCloudMusicAPI
@@ -90,6 +117,23 @@ print(detail.body)
 let lyric = try await client.lyric(id: 347230)
 print(lyric.body)
 ```
+
+### 直连加密模式
+
+无需部署后端，客户端直接加密请求网易云服务器：
+
+```swift
+import NeteaseCloudMusicAPI
+
+// 直连模式，不传 serverUrl
+let client = NCMClient()
+
+// 所有接口用法完全一致
+let result = try await client.cloudsearch(keywords: "周杰伦")
+print(result.body)
+```
+
+> 直连模式下 SDK 会自动选择加密方式（WeAPI / EAPI / LinuxAPI），与官方客户端行为一致。适合不想部署后端的场景，但部分功能可能受网易风控限制。
 
 ---
 

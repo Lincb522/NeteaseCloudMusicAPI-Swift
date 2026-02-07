@@ -2,13 +2,17 @@
 - 使用须知
   - [<i data-lucide="alert-triangle" style="width:14px;height:14px;vertical-align:middle;stroke:#22C55E"></i> 使用须知](#使用须知)
   - [关于后端代理](#关于后端代理)
+  - [关于直连加密](#关于直连加密)
+  - [iOS ATS 注意事项](#ios-ats-注意事项)
   - [关于 Cookie](#关于-cookie)
   - [关于加密](#关于加密)
   - [关于返回值](#关于返回值)
   - [关于平台支持](#关于平台支持)
 - 快速开始
   - [安装](#安装)
-  - [快速开始](#快速开始)
+  - [两种模式](#两种模式)
+  - [后端代理模式](#后端代理模式)
+  - [直连加密模式](#直连加密模式)
   - [登录与 Cookie](#登录与-cookie)
 - 接口文档
   - [<i data-lucide="search" style="width:14px;height:14px;vertical-align:middle;stroke:#22C55E"></i> 搜索](#搜索)

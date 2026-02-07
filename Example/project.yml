@@ -18,6 +18,13 @@ targets:
       - Sources
     dependencies:
       - package: NeteaseCloudMusicAPI
+    info:
+      properties:
+        NSAppTransportSecurity:
+          NSExceptionDomains:
+            music.126.net:
+              NSExceptionAllowsInsecureHTTPLoads: true
+              NSIncludesSubdomains: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ncmdemo.app
