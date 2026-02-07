@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0761658EC0DE4D82E281DD5E /* DJRadioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34635F18BCF7697E0612ECCA /* DJRadioView.swift */; };
 		1773A88B78C94996E83B6118 /* ToplistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 625D3CE0713B29BC17F2EA50 /* ToplistView.swift */; };
 		4295C2A9604D53827D78986D /* NCMDemoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6478068A73A68B64A72672E4 /* NCMDemoApp.swift */; };
 		55867F23D3667549FA9E8D5D /* DemoViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A09DE4B860827D364C936E1 /* DemoViewModel.swift */; };
@@ -23,6 +24,7 @@
 		099A60682B7F7D9D214CB495 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		2A09DE4B860827D364C936E1 /* DemoViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoViewModel.swift; sourceTree = "<group>"; };
 		2D5545793B7A420CF89DF1EF /* NCMDemo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = NCMDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		34635F18BCF7697E0612ECCA /* DJRadioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJRadioView.swift; sourceTree = "<group>"; };
 		625D3CE0713B29BC17F2EA50 /* ToplistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToplistView.swift; sourceTree = "<group>"; };
 		6478068A73A68B64A72672E4 /* NCMDemoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NCMDemoApp.swift; sourceTree = "<group>"; };
 		A25FAD0E056C615CD0DD3C3B /* PlaylistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistView.swift; sourceTree = "<group>"; };
@@ -71,6 +73,7 @@
 			children = (
 				084517D6289E4C0E97072985 /* ContentView.swift */,
 				2A09DE4B860827D364C936E1 /* DemoViewModel.swift */,
+				34635F18BCF7697E0612ECCA /* DJRadioView.swift */,
 				6478068A73A68B64A72672E4 /* NCMDemoApp.swift */,
 				A25FAD0E056C615CD0DD3C3B /* PlaylistView.swift */,
 				099A60682B7F7D9D214CB495 /* SearchView.swift */,
@@ -145,6 +148,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F2982720ECA0C654D7FF0502 /* ContentView.swift in Sources */,
+				0761658EC0DE4D82E281DD5E /* DJRadioView.swift in Sources */,
 				55867F23D3667549FA9E8D5D /* DemoViewModel.swift in Sources */,
 				4295C2A9604D53827D78986D /* NCMDemoApp.swift in Sources */,
 				E046A96D10B8EB3FA88C6828 /* PlaylistView.swift in Sources */,

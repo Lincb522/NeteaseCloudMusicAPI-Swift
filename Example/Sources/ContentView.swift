@@ -26,6 +26,12 @@ struct ContentView: View {
             }
             .tabItem { Label("排行榜", systemImage: "chart.bar") }
 
+            // 电台
+            NavigationStack {
+                DJRadioView(vm: vm)
+            }
+            .tabItem { Label("电台", systemImage: "radio") }
+
             // 连接设置
             NavigationStack {
                 SettingsView(vm: vm)

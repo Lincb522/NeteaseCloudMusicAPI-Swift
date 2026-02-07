@@ -58,6 +58,15 @@ class DemoViewModel: ObservableObject {
 
     @Published var toplists: [[String: Any]] = []
 
+    // MARK: - 电台
+
+    @Published var djRecommendList: [[String: Any]] = []
+    @Published var djHotList: [[String: Any]] = []
+    @Published var djCategories: [[String: Any]] = []
+    @Published var djProgramToplistData: [[String: Any]] = []
+    @Published var djProgramList: [[String: Any]] = []
+    @Published var selectedRadioName: String = ""
+
     // MARK: - 通用状态
 
     @Published var isLoading: Bool = false
@@ -436,6 +445,107 @@ class DemoViewModel: ObservableObject {
             let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
             errorMessage = "获取排行榜失败: \(error.localizedDescription)"
             print("[NCMDemo] ❌ 排行榜失败 [\(ms)ms] \(error)")
+        }
+        isLoading = false
+    }
+
+    // MARK: - 电台
+
+    /// 加载电台页面所有数据
+    func loadDJData() async {
+        isLoading = true
+        errorMessage = nil
+        print("[NCMDemo] ➡️ 加载电台数据")
+
+        // 并发加载推荐、热门、分类、节目排行
+        async let recTask: () = fetchDJRecommend()
+        async let hotTask: () = fetchDJHot()
+        async let catTask: () = fetchDJCategories()
+        async let topTask: () = fetchDJProgramToplist()
+
+        _ = await (recTask, hotTask, catTask, topTask)
+        isLoading = false
+    }
+
+    /// 获取推荐电台
+    private func fetchDJRecommend() async {
+        let start = CFAbsoluteTimeGetCurrent()
+        do {
+            let resp = try await client.djRecommend()
+            let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+            if let djRadios = resp.body["djRadios"] as? [[String: Any]] {
+                djRecommendList = djRadios
+                print("[NCMDemo] ✅ 推荐电台 [\(ms)ms] 数量=\(djRadios.count)")
+            }
+        } catch {
+            print("[NCMDemo] ❌ 推荐电台失败: \(error)")
+        }
+    }
+
+    /// 获取热门电台
+    private func fetchDJHot() async {
+        let start = CFAbsoluteTimeGetCurrent()
+        do {
+            let resp = try await client.djHot(limit: 20)
+            let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+            if let djRadios = resp.body["djRadios"] as? [[String: Any]] {
+                djHotList = djRadios
+                print("[NCMDemo] ✅ 热门电台 [\(ms)ms] 数量=\(djRadios.count)")
+            }
+        } catch {
+            print("[NCMDemo] ❌ 热门电台失败: \(error)")
+        }
+    }
+
+    /// 获取电台分类
+    private func fetchDJCategories() async {
+        let start = CFAbsoluteTimeGetCurrent()
+        do {
+            let resp = try await client.djCatelist()
+            let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+            if let categories = resp.body["categories"] as? [[String: Any]] {
+                djCategories = categories
+                print("[NCMDemo] ✅ 电台分类 [\(ms)ms] 数量=\(categories.count)")
+            }
+        } catch {
+            print("[NCMDemo] ❌ 电台分类失败: \(error)")
+        }
+    }
+
+    /// 获取节目排行榜
+    private func fetchDJProgramToplist() async {
+        let start = CFAbsoluteTimeGetCurrent()
+        do {
+            let resp = try await client.djProgramToplist(limit: 20)
+            let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+            if let toplist = resp.body["toplist"] as? [[String: Any]] {
+                djProgramToplistData = toplist
+                print("[NCMDemo] ✅ 节目排行 [\(ms)ms] 数量=\(toplist.count)")
+            }
+        } catch {
+            print("[NCMDemo] ❌ 节目排行失败: \(error)")
+        }
+    }
+
+    /// 获取电台节目列表
+    func fetchDJPrograms(radioId: Int, radioName: String) async {
+        isLoading = true
+        selectedRadioName = radioName
+        djProgramList = []
+        let start = CFAbsoluteTimeGetCurrent()
+        print("[NCMDemo] ➡️ 电台节目: id=\(radioId) \"\(radioName)\"")
+
+        do {
+            let resp = try await client.djProgram(rid: radioId, limit: 50)
+            let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+            if let programs = resp.body["programs"] as? [[String: Any]] {
+                djProgramList = programs
+                print("[NCMDemo] ✅ 电台节目 [\(ms)ms] 数量=\(programs.count)")
+            }
+        } catch {
+            let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+            errorMessage = "获取节目列表失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 电台节目失败 [\(ms)ms] \(error)")
         }
         isLoading = false
     }
