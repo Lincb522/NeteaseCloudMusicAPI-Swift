@@ -1,0 +1,602 @@
+<p align="center">
+  <img src="https://p1.music.126.net/tBTNafgjNnTL1y0e7EvOvg==/109951163740862102.jpg" width="120" height="120" style="border-radius: 20px;" />
+</p>
+
+<h1 align="center">NeteaseCloudMusicAPI-Swift</h1>
+
+<p align="center">
+  <strong>网易云音乐 API 的原生 Swift 封装</strong>
+</p>
+
+<p align="center">
+  <a href="#安装">安装</a> •
+  <a href="#快速开始">快速开始</a> •
+  <a href="#两种模式">两种模式</a> •
+  <a href="#api-分类">API 分类</a> •
+  <a href="#示例应用">示例应用</a> •
+  <a href="#架构设计">架构设计</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Swift-5.9+-F05138?style=flat-square&logo=swift&logoColor=white" />
+  <img src="https://img.shields.io/badge/平台-iOS%2015+%20|%20macOS%2012+%20|%20tvOS%2015+%20|%20watchOS%208+-blue?style=flat-square" />
+  <img src="https://img.shields.io/badge/API-362%20个接口-green?style=flat-square" />
+  <img src="https://img.shields.io/badge/测试-78%20通过-brightgreen?style=flat-square" />
+  <img src="https://img.shields.io/badge/依赖-零依赖-orange?style=flat-square" />
+</p>
+
+---
+
+## ✨ 特性
+
+- 🎵 **362 个 API 接口** — 完整覆盖网易云音乐全部功能
+- 🔐 **四种加密模式** — WeAPI / EAPI / LinuxAPI / 明文，与官方客户端一致
+- 🔄 **双模式运行** — 直连网易云（客户端加密）或走自部署 Node 后端
+- 🍎 **全平台支持** — iOS / macOS / tvOS / watchOS
+- 📦 **零外部依赖** — 仅使用 Foundation + CommonCrypto
+- 🧪 **78 个测试用例** — 包含属性测试，覆盖加密、网络、会话管理
+- 🎯 **Swift 原生** — async/await、强类型枚举、完整中文文档注释
+
+---
+
+## 安装
+
+### Swift Package Manager
+
+在 `Package.swift` 中添加依赖：
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/your-repo/NeteaseCloudMusicAPI-Swift.git", from: "1.0.0")
+]
+```
+
+或在 Xcode 中：`File` → `Add Package Dependencies` → 输入仓库地址。
+
+---
+
+## 快速开始
+
+```swift
+import NeteaseCloudMusicAPI
+
+// 创建客户端
+let client = NCMClient()
+
+// 搜索歌曲
+let result = try await client.cloudsearch(keywords: "周杰伦")
+print(result.body)
+
+// 获取歌曲详情
+let detail = try await client.songDetail(ids: [347230])
+print(detail.body)
+
+// 获取歌词
+let lyric = try await client.lyric(id: 347230)
+print(lyric.body)
+```
+
+---
+
+## 两种模式
+
+### 模式一：直连网易云（默认）
+
+客户端自行加密请求，直接与网易云服务器通信。无需部署后端。
+
+```swift
+let client = NCMClient()
+
+// 可选：自定义网易云域名（用于代理场景）
+let client = NCMClient(
+    domain: "https://music.163.com",
+    apiDomain: "https://interface.music.163.com"
+)
+```
+
+### 模式二：后端代理
+
+请求发送到你部署的 [NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) Node 后端，由后端处理加密和转发。
+
+```swift
+// 初始化时指定
+let client = NCMClient(serverUrl: "http://localhost:3000")
+
+// 或运行时切换
+client.serverUrl = "https://my-ncm-api.example.com"
+
+// 切回直连模式
+client.serverUrl = nil
+```
+
+> 后端代理模式下，`/api/song/detail` 会自动转为 `/song/detail` 路由，POST JSON 明文参数。
+
+---
+
+## 登录与 Cookie
+
+```swift
+let client = NCMClient()
+
+// 方式一：手机号登录
+let loginResult = try await client.loginCellphone(phone: "13800138000", password: "your_password")
+
+// 方式二：二维码登录
+let qrKey = try await client.loginQrKey()
+let qrUrl = try await client.loginQrCreate(key: qrKey.body["unikey"] as! String)
+// ... 扫码后轮询
+let checkResult = try await client.loginQrCheck(key: key)
+
+// 方式三：直接设置 Cookie
+client.setCookie("MUSIC_U=xxx; __csrf=xxx")
+
+// 查看当前 Cookie
+print(client.currentCookies)
+```
+
+---
+
+## API 分类
+
+</text>
+</invoke>
+
+### 🔍 搜索 (8 个接口)
+
+| 方法 | 说明 |
+|------|------|
+| `cloudsearch()` | 搜索（歌曲/专辑/歌手/歌单/MV/歌词等） |
+| `searchDefault()` | 默认搜索关键词 |
+| `searchHot()` | 热搜列表（简略） |
+| `searchHotDetail()` | 热搜列表（详细） |
+| `searchSuggest()` | 搜索建议 |
+| `searchMultimatch()` | 搜索多重匹配 |
+| `searchMatch()` | 搜索匹配 |
+| `search()` | 搜索（旧版） |
+
+### 🎵 歌曲 (26 个接口)
+
+| 方法 | 说明 |
+|------|------|
+| `songDetail()` | 歌曲详情 |
+| `songUrl()` | 歌曲播放地址 |
+| `songUrlV1()` | 歌曲播放地址 V1 |
+| `songDownloadUrl()` | 歌曲下载地址 |
+| `songDownloadUrlV1()` | 歌曲下载地址 V1 |
+| `lyric()` | 获取歌词 |
+| `lyricNew()` | 获取歌词（新版） |
+| `like()` | 红心歌曲 |
+| `likelist()` | 红心歌曲列表 |
+| `songLikeCheck()` | 检查是否已红心 |
+| `scrobble()` | 听歌打卡 |
+| `checkMusic()` | 歌曲可用性检查 |
+| `topSong()` | 新歌速递 |
+| `personalFm()` | 私人 FM |
+| `personalFmMode()` | 私人 FM 模式 |
+| `songChorus()` | 歌曲副歌片段 |
+| `songDynamicCover()` | 歌曲动态封面 |
+| `songWikiSummary()` | 歌曲百科摘要 |
+| `songMusicDetail()` | 歌曲音质详情 |
+| `songPurchased()` | 已购歌曲 |
+| `songRedCount()` | 歌曲红色计数 |
+| `songDownlist()` | 歌曲下载排行 |
+| `songMonthdownlist()` | 歌曲月下载排行 |
+| `songSingledownlist()` | 歌曲单曲下载排行 |
+| `songOrderUpdate()` | 歌曲排序更新 |
+| `songLyricsMark()` / `Add()` / `Del()` / `UserPage()` | 歌词标记系列 |
+
+### 📋 歌单 (28 个接口)
+
+| 方法 | 说明 |
+|------|------|
+| `playlistDetail()` | 歌单详情 |
+| `playlistDetailDynamic()` | 歌单动态信息 |
+| `playlistTrackAll()` | 歌单所有歌曲 |
+| `playlistTracks()` | 歌单添加/删除歌曲 |
+| `playlistCreate()` | 创建歌单 |
+| `playlistDelete()` | 删除歌单 |
+| `playlistSubscribe()` | 收藏/取消收藏歌单 |
+| `playlistSubscribers()` | 歌单收藏者 |
+| `topPlaylist()` | 歌单广场 |
+| `topPlaylistHighquality()` | 精品歌单 |
+| `playlistCatlist()` | 歌单分类 |
+| `playlistHot()` | 热门歌单标签 |
+| `playlistUpdate()` | 编辑歌单 |
+| `playlistNameUpdate()` | 更新歌单名 |
+| `playlistDescUpdate()` | 更新歌单描述 |
+| `playlistTagsUpdate()` | 更新歌单标签 |
+| `playlistOrderUpdate()` | 更新歌单顺序 |
+| `playlistPrivacy()` | 歌单隐私设置 |
+| `playlistMylike()` | 我喜欢的音乐 |
+| `playlistCoverUpdate()` | 更新歌单封面 |
+| `playlistImportNameTaskCreate()` | 导入歌单 |
+| `playlistImportTaskStatus()` | 导入歌单状态 |
+| `playlistDetailRcmdGet()` | 歌单推荐 |
+| `playlistCategoryList()` | 歌单分类列表 |
+| `playlistHighqualityTags()` | 精品歌单标签 |
+| `playlistTrackAdd()` / `Delete()` | 歌单曲目操作 |
+| `playlistUpdatePlaycount()` | 更新播放量 |
+| `playlistVideoRecent()` | 歌单最近视频 |
+
+### 👤 用户 (25 个接口)
+
+| 方法 | 说明 |
+|------|------|
+| `userDetail()` | 用户详情 |
+| `userDetailNew()` | 用户详情（新版） |
+| `userAccount()` | 当前账号信息 |
+| `userSubcount()` | 用户收藏计数 |
+| `userLevel()` | 用户等级 |
+| `userPlaylist()` | 用户歌单 |
+| `userRecord()` | 用户听歌排行 |
+| `userFollows()` | 用户关注列表 |
+| `userFolloweds()` | 用户粉丝列表 |
+| `userEvent()` | 用户动态 |
+| `userBinding()` | 用户绑定信息 |
+| `userBindingcellphone()` | 绑定手机号 |
+| `userReplacephone()` | 更换手机号 |
+| `userUpdate()` | 更新用户信息 |
+| `userCloud()` | 云盘歌曲 |
+| `userCloudDel()` | 删除云盘歌曲 |
+| `userCloudDetail()` | 云盘歌曲详情 |
+| `userCommentHistory()` | 用户评论历史 |
+| `userDj()` | 用户电台 |
+| `userAudio()` | 用户音频 |
+| `userMedal()` | 用户勋章 |
+| `userMutualfollowGet()` | 互相关注 |
+| `userFollowMixed()` | 混合关注列表 |
+| `userSocialStatus()` / `Edit()` / `Rcmd()` / `Support()` | 社交状态系列 |
+| `follow()` | 关注/取消关注 |
+
+### 🎤 歌手 (17 个接口)
+
+| 方法 | 说明 |
+|------|------|
+| `artists()` | 歌手详情 |
+| `artistAlbum()` | 歌手专辑 |
+| `artistSongs()` | 歌手歌曲 |
+| `artistTopSong()` | 歌手热门歌曲 |
+| `artistDesc()` | 歌手描述 |
+| `artistDetail()` | 歌手详情（新版） |
+| `artistDetailDynamic()` | 歌手动态信息 |
+| `artistMv()` | 歌手 MV |
+| `artistNewMv()` | 歌手最新 MV |
+| `artistNewSong()` | 歌手最新歌曲 |
+| `artistList()` | 歌手分类列表 |
+| `artistSub()` | 收藏歌手 |
+| `artistSublist()` | 已收藏歌手 |
+| `artistFans()` | 歌手粉丝 |
+| `artistFollowCount()` | 歌手关注数 |
+| `artistVideo()` | 歌手视频 |
+| `toplistArtist()` | 歌手排行榜 |
+
+### 💿 专辑 (14 个接口)
+
+| 方法 | 说明 |
+|------|------|
+| `album()` | 专辑详情 |
+| `albumDetailDynamic()` | 专辑动态信息 |
+| `albumSub()` | 收藏专辑 |
+| `albumSublist()` | 已收藏专辑 |
+| `albumNewest()` | 最新专辑 |
+| `albumNew()` | 新碟上架 |
+| `topAlbum()` | 热门新碟 |
+| `albumList()` | 专辑列表 |
+| `albumListStyle()` | 专辑风格列表 |
+| `albumDetail()` | 数字专辑详情 |
+| `albumPrivilege()` | 专辑权限 |
+| `albumSongsaleboard()` | 专辑销量榜 |
+| `digitalAlbumOrdering()` | 购买数字专辑 |
+| `digitalAlbumPurchased()` / `Sales()` / `Detail()` | 数字专辑系列 |
+
+### 💬 评论 (13 个接口)
+
+| 方法 | 说明 |
+|------|------|
+| `comment()` | 发表/删除/回复评论 |
+| `commentNew()` | 获取评论（新版） |
+| `commentHot()` | 热门评论 |
+| `commentFloor()` | 楼层评论 |
+| `commentLike()` | 点赞评论 |
+| `commentHugList()` | 评论抱一抱列表 |
+| `commentMusic()` | 歌曲评论 |
+| `commentAlbum()` | 专辑评论 |
+| `commentPlaylist()` | 歌单评论 |
+| `commentMv()` | MV 评论 |
+| `commentDj()` | 电台评论 |
+| `commentVideo()` | 视频评论 |
+| `commentEvent()` | 动态评论 |
+
+### 🎬 MV / 视频 (18 个接口)
+
+| 方法 | 说明 |
+|------|------|
+| `mvAll()` | 全部 MV |
+| `mvFirst()` | 最新 MV |
+| `mvExclusiveRcmd()` | 独家放送 |
+| `mvDetail()` | MV 详情 |
+| `mvDetailInfo()` | MV 点赞数等 |
+| `mvUrl()` | MV 播放地址 |
+| `mvSub()` | 收藏 MV |
+| `mvSublist()` | 已收藏 MV |
+| `topMv()` | MV 排行榜 |
+| `videoDetail()` | 视频详情 |
+| `videoDetailInfo()` | 视频点赞数等 |
+| `videoUrl()` | 视频播放地址 |
+| `videoSub()` | 收藏视频 |
+| `videoGroup()` | 视频分组 |
+| `videoGroupList()` | 视频分组列表 |
+| `videoCategoryList()` | 视频分类列表 |
+| `videoTimelineAll()` | 全部视频动态 |
+| `videoTimelineRecommend()` | 推荐视频 |
+
+### 📻 电台 / 播客 (25 个接口)
+
+| 方法 | 说明 |
+|------|------|
+| `djDetail()` | 电台详情 |
+| `djProgram()` | 电台节目列表 |
+| `djProgramDetail()` | 节目详情 |
+| `djSub()` | 订阅电台 |
+| `djSublist()` | 已订阅电台 |
+| `djHot()` | 热门电台 |
+| `djRecommend()` | 推荐电台 |
+| `djRecommendType()` | 分类推荐 |
+| `djCatelist()` | 电台分类 |
+| `djCategoryRecommend()` | 分类推荐电台 |
+| `djCategoryExcludehot()` | 非热门分类 |
+| `djRadioHot()` | 类别热门电台 |
+| `djToplist()` | 电台排行榜 |
+| `djToplistHours()` | 24 小时排行 |
+| `djToplistNewcomer()` | 新人排行 |
+| `djToplistPay()` | 付费排行 |
+| `djToplistPopular()` | 最热主播 |
+| `djRadioTop()` | 新晋电台榜 |
+| `djProgramToplist()` | 节目排行 |
+| `djProgramToplistHours()` | 24 小时节目排行 |
+| `djBanner()` | 电台 Banner |
+| `djSubscriber()` | 电台订阅者 |
+| `djPaygift()` | 付费精选 |
+| `djPersonalizeRecommend()` | 个性化推荐 |
+| `djTodayPerfered()` | 今日优选 |
+
+### 📊 排行榜 (8 个接口)
+
+| 方法 | 说明 |
+|------|------|
+| `toplist()` | 所有排行榜 |
+| `toplistDetail()` | 排行榜详情 |
+| `toplistDetailV2()` | 排行榜详情 V2 |
+| `topList()` | 排行榜歌曲 |
+| `topArtists()` | 热门歌手 |
+| `toplistArtist()` | 歌手排行榜 |
+| `topSong()` | 新歌速递 |
+| `topPlaylist()` | 歌单排行 |
+
+### 🎁 推荐 (14 个接口)
+
+| 方法 | 说明 |
+|------|------|
+| `recommendSongs()` | 每日推荐歌曲 |
+| `recommendResource()` | 每日推荐歌单 |
+| `recommendSongsDislike()` | 不喜欢推荐歌曲 |
+| `personalized()` | 推荐歌单 |
+| `personalizedNewsong()` | 推荐新歌 |
+| `personalizedMv()` | 推荐 MV |
+| `personalizedDjprogram()` | 推荐电台 |
+| `personalizedPrivatecontent()` | 独家放送 |
+| `personalizedPrivatecontentList()` | 独家放送列表 |
+| `programRecommend()` | 推荐节目 |
+| `historyRecommendSongs()` | 历史推荐歌曲 |
+| `historyRecommendSongsDetail()` | 历史推荐详情 |
+| `relatedPlaylist()` | 相关歌单 |
+| `simiPlaylist()` / `Song()` / `Mv()` / `User()` | 相似推荐系列 |
+
+### 🔑 登录认证 (11 个接口)
+
+| 方法 | 说明 |
+|------|------|
+| `login()` | 邮箱登录 |
+| `loginCellphone()` | 手机号登录 |
+| `loginQrKey()` | 二维码 Key |
+| `loginQrCreate()` | 生成二维码 |
+| `loginQrCheck()` | 二维码状态 |
+| `loginRefresh()` | 刷新登录 |
+| `loginStatus()` | 登录状态 |
+| `logout()` | 退出登录 |
+| `captchaSent()` | 发送验证码 |
+| `captchaVerify()` | 验证验证码 |
+| `registerCellphone()` | 手机号注册 |
+
+### 💎 VIP (20 个接口)
+
+| 方法 | 说明 |
+|------|------|
+| `vipInfo()` | VIP 信息 |
+| `vipInfoV2()` | VIP 信息 V2 |
+| `vipGrowthpoint()` | 成长值 |
+| `vipGrowthpointDetails()` | 成长值详情 |
+| `vipGrowthpointGet()` | 领取成长值 |
+| `vipTasks()` | VIP 任务 |
+| `vipSign()` | VIP 签到 |
+| `vipSignInfo()` | 签到信息 |
+| `vipTimemachine()` | 时光机 |
+| `yunbei()` | 云贝数量 |
+| `yunbeiInfo()` | 云贝信息 |
+| `yunbeiSign()` | 云贝签到 |
+| `yunbeiTasks()` | 云贝任务 |
+| `yunbeiTasksTodo()` | 待完成任务 |
+| `yunbeiTaskFinish()` | 完成任务 |
+| `yunbeiToday()` | 今日云贝 |
+| `yunbeiExpense()` | 云贝支出 |
+| `yunbeiReceipt()` | 云贝收入 |
+| `yunbeiRcmdSong()` | 云贝推荐歌曲 |
+| `yunbeiRcmdSongHistory()` | 推荐历史 |
+
+### 📨 私信 (10 个接口)
+
+| 方法 | 说明 |
+|------|------|
+| `msgPrivate()` | 私信列表 |
+| `msgPrivateHistory()` | 私信历史 |
+| `msgRecentcontact()` | 最近联系人 |
+| `msgComments()` | 评论消息 |
+| `msgForwards()` | 转发消息 |
+| `msgNotices()` | 通知消息 |
+| `sendText()` | 发送文字 |
+| `sendSong()` | 发送歌曲 |
+| `sendAlbum()` | 发送专辑 |
+| `sendPlaylist()` | 发送歌单 |
+
+### ☁️ 云盘 (6 个接口)
+
+| 方法 | 说明 |
+|------|------|
+| `cloudUploadCheck()` | 上传检查 |
+| `cloudUploadInfo()` | 上传信息提交 |
+| `cloudPub()` | 云盘发布 |
+| `cloudImport()` | 云盘导入 |
+| `cloudMatch()` | 云盘歌曲匹配 |
+| `cloudLyricGet()` | 云盘歌词 |
+
+### 🔧 其他 (119 个接口)
+
+包含 Banner、一起听、听歌足迹、音乐人、粉丝中心、曲风、UGC 百科、声音/播客、广播电台、动态、话题、Mlog、乐谱、首页、第三方解灰等。
+
+---
+
+## 第三方解灰
+
+```swift
+// UNM 解灰（需自部署 UNM-Server）
+let result = try await client.songUrlMatch(
+    id: 347230,
+    source: "qq",
+    serverUrl: "http://localhost:8080"
+)
+
+// GD Studio 解灰（支持替换第三方源）
+let result = try await client.songUrlNcmget(id: 347230, br: "320")
+
+// 使用自定义源
+let result = try await client.songUrlNcmget(
+    id: 347230,
+    serverUrl: "https://my-music-api.example.com/api.php"
+)
+```
+
+---
+
+## 示例应用
+
+`Example/` 目录包含一个完整的 macOS SwiftUI 示例应用：
+
+```bash
+cd Example
+swift run
+```
+
+功能包括：
+- ⚙️ 设置 — 配置直连/代理模式、Cookie、连接测试
+- 🔍 搜索 — 搜索歌曲 + 歌词展示
+- 📋 歌单 — 热门歌单浏览 + 歌曲列表
+- 📊 排行榜 — 全部排行榜网格展示
+
+---
+
+## 架构设计
+
+```
+┌─────────────────────────────────────────────┐
+│                  NCMClient                   │
+│          (面向用户的统一入口)                   │
+│                                              │
+│  ┌─ serverUrl? ──→ 后端代理模式 (HTTP POST)   │
+│  └─ nil ─────────→ 直连加密模式 ↓             │
+├──────────────────────────────────────────────┤
+│              RequestClient                    │
+│     (URL 构建 · 加密分发 · HTTP 执行)          │
+├──────────┬───────────┬───────────────────────┤
+│CryptoEngine│SessionManager│   NCMConstants    │
+│ AES-CBC    │ Cookie 管理  │   密钥 · 域名     │
+│ AES-ECB    │ 设备元数据   │   公钥 · 常量     │
+│ RSA        │ UA 选择      │                   │
+│ MD5        │ EAPI Header  │                   │
+└──────────┴───────────┴───────────────────────┘
+```
+
+### 三层架构
+
+| 层级 | 模块 | 职责 |
+|------|------|------|
+| **加密层** | `CryptoEngine` | AES-CBC/ECB 加解密、RSA 无填充加密、MD5 哈希 |
+| **网络层** | `RequestClient` | URL 路径重写、加密分发、HTTP POST、响应解密 |
+| **会话层** | `SessionManager` | Cookie 管理、设备元数据、UA 选择、EAPI Header |
+| **入口层** | `NCMClient` | 362 个 API 方法、双模式路由、Cookie 设置 |
+
+### API 扩展文件
+
+| 文件 | 接口数 | 覆盖范围 |
+|------|--------|----------|
+| `NCMClient+Song.swift` | 26 | 歌曲、歌词、FM、红心 |
+| `NCMClient+Playlist.swift` | 28 | 歌单 CRUD、收藏、导入 |
+| `NCMClient+User.swift` | 25 | 用户信息、云盘、关注 |
+| `NCMClient+DJ.swift` | 25 | 电台、播客、节目 |
+| `NCMClient+VIP.swift` | 20 | VIP、云贝、签到 |
+| `NCMClient+MV.swift` | 18 | MV、视频 |
+| `NCMClient+Artist.swift` | 17 | 歌手信息、排行 |
+| `NCMClient+Album.swift` | 14 | 专辑、数字专辑 |
+| `NCMClient+Recommend.swift` | 14 | 推荐、个性化 |
+| `NCMClient+Comment.swift` | 13 | 评论 CRUD |
+| `NCMClient+Auth.swift` | 11 | 登录、注册、验证 |
+| `NCMClient+Message.swift` | 10 | 私信、通知 |
+| `NCMClient+Search.swift` | 8 | 搜索、热搜 |
+| `NCMClient+Ranking.swift` | 8 | 排行榜 |
+| `NCMClient+Cloud.swift` | 6 | 云盘上传 |
+| `NCMClient+Misc.swift` | 119 | 其他全部接口 |
+
+---
+
+## 项目结构
+
+```
+NeteaseCloudMusicAPI-Swift/
+├── Package.swift
+├── Sources/NeteaseCloudMusicAPI/
+│   ├── NCMClient.swift              # 主客户端入口
+│   ├── API/                         # 362 个 API 方法（16 个扩展文件）
+│   ├── Crypto/CryptoEngine.swift    # 加密引擎
+│   ├── Network/RequestClient.swift  # HTTP 请求客户端
+│   ├── Session/SessionManager.swift # 会话管理
+│   └── Models/                      # 枚举、常量、错误、响应类型
+├── Tests/                           # 78 个测试用例
+└── Example/                         # SwiftUI 示例应用
+```
+
+---
+
+## 测试
+
+```bash
+swift test
+```
+
+测试覆盖：
+- `CryptoEngineTests` — 加密原语单元测试 (36 个)
+- `CryptoEnginePropertyTests` — 加密属性测试 (3 个)
+- `EnumsPropertyTests` — 枚举完整性测试 (27 个)
+- `RequestClientPropertyTests` — 请求客户端测试 (6 个)
+- `SessionManagerPropertyTests` — 会话管理测试 (5 个)
+- `NeteaseCloudMusicAPITests` — 常量定义测试 (1 个)
+
+---
+
+## 致谢
+
+本项目基于 [NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) 的 Node.js 实现，将其 364 个模块完整移植为原生 Swift。
+
+---
+
+## 许可证
+
+MIT License
