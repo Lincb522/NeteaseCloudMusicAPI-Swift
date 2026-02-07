@@ -2963,6 +2963,7 @@ let result = try await client.songUrlNcmget(id: 347230, serverUrl: "https://my-m
 本项目的灵感和 API 参考来自以下优秀的开源项目：
 
 - [Binaryify/NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) — 网易云音乐 Node.js API 服务，本项目的核心参考，364 个模块完整移植为原生 Swift
+- [NeteaseCloudMusicApiEnhanced/api-enhanced](https://github.com/neteasecloudmusicapienhanced/api-enhanced) — 网易云音乐 API 增强版，基于原版持续维护的社区项目
 - [darknessomi/musicbox](https://github.com/darknessomi/musicbox) — 网易云音乐命令行客户端，加密算法参考
 - [disoul/electron-cloud-music](https://github.com/nicerloop/electron-cloud-music) — 网易云音乐 Electron 客户端
 - [sqaiyan/netmusic-node](https://github.com/sqaiyan/netmusic-node) — 网易云音乐 Node.js API 封装

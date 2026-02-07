@@ -131,10 +131,18 @@ public class NCMClient {
         uri: String,
         data: [String: Any]
     ) async throws -> APIResponse {
+        let start = CFAbsoluteTimeGetCurrent()
+
         // 将 /api/xxx/yyy 转为 Node 后端路由格式
         let route = NCMClient.apiPathToRoute(uri)
         let base = serverUrl.hasSuffix("/") ? String(serverUrl.dropLast()) : serverUrl
         let urlString = base + route
+
+        #if DEBUG
+        print("[NCM] ➡️ PROXY POST \(urlString)")
+        print("[NCM]    原始路径: \(uri)")
+        print("[NCM]    参数: \(data.keys.sorted().joined(separator: ", "))")
+        #endif
 
         guard let url = URL(string: urlString) else {
             throw NCMError.invalidResponse(detail: "无效的后端 URL: \(urlString)")
@@ -148,6 +156,9 @@ public class NCMClient {
         let cookieHeader = requestClient.sessionManager.buildCookieHeader(for: uri, crypto: .eapi)
         if !cookieHeader.isEmpty {
             urlRequest.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
+            #if DEBUG
+            print("[NCM]    Cookie: \(String(cookieHeader.prefix(80)))...")
+            #endif
         }
 
         // JSON 编码请求体
@@ -157,6 +168,7 @@ public class NCMClient {
         let (responseData, response) = try await URLSession.shared.data(for: urlRequest)
         let httpResponse = response as? HTTPURLResponse
         let statusCode = httpResponse?.statusCode ?? 200
+        let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
 
         // 提取 Set-Cookie
         var setCookies: [String] = []
@@ -174,6 +186,20 @@ public class NCMClient {
         // 解析 JSON
         let body = (try? JSONSerialization.jsonObject(with: responseData)) as? [String: Any]
             ?? ["_raw": String(data: responseData, encoding: .utf8) ?? ""]
+
+        #if DEBUG
+        print("[NCM] ⬅️ \(statusCode) \(route) [\(ms)ms] 数据=\(responseData.count)字节")
+        if let code = body["code"] as? Int {
+            print("[NCM]    响应 code=\(code)")
+        }
+        if !setCookies.isEmpty {
+            print("[NCM]    Set-Cookie: \(setCookies.count) 条")
+        }
+        if let jsonStr = String(data: responseData, encoding: .utf8) {
+            let preview = String(jsonStr.prefix(500))
+            print("[NCM]    响应体: \(preview)\(jsonStr.count > 500 ? "..." : "")")
+        }
+        #endif
 
         return APIResponse(status: statusCode, body: body, cookies: setCookies)
     }

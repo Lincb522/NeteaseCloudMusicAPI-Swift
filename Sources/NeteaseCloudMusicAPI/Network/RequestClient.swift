@@ -51,8 +51,19 @@ class RequestClient {
         data: [String: Any],
         options: RequestOptions
     ) async throws -> APIResponse {
+        let start = CFAbsoluteTimeGetCurrent()
+
+        #if DEBUG
+        print("[NCM] ➡️ \(options.crypto) \(uri)")
+        print("[NCM]    参数: \(data.keys.sorted().joined(separator: ", "))")
+        #endif
+
         // 1. 根据加密模式构建 URL 和加密参数
         let (url, body) = try buildRequestComponents(uri: uri, data: data, options: options)
+
+        #if DEBUG
+        print("[NCM]    URL: \(url.absoluteString)")
+        #endif
 
         // 2. 构建请求头
         let headers = buildHeaders(uri: uri, options: options)
@@ -74,21 +85,53 @@ class RequestClient {
         // 4. 发送 HTTP POST 请求
         let (responseData, httpResponse) = try await executeRequest(urlRequest)
 
+        let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+
         // 5. 提取响应信息
         let statusCode = httpResponse.statusCode
         let setCookieHeaders = extractSetCookieHeaders(from: httpResponse)
 
+        #if DEBUG
+        print("[NCM] ⬅️ \(statusCode) \(uri) [\(ms)ms] 数据=\(responseData.count)字节")
+        if !setCookieHeaders.isEmpty {
+            print("[NCM]    Set-Cookie: \(setCookieHeaders.count) 条")
+        }
+        #endif
+
         // 6. 解析响应体为 JSON
         let responseBody = parseResponseBody(responseData)
 
+        #if DEBUG
+        if let code = responseBody["code"] as? Int {
+            print("[NCM]    响应 code=\(code)")
+        }
+        // 输出响应体预览（截断到 500 字符）
+        if let jsonData = try? JSONSerialization.data(withJSONObject: responseBody, options: []),
+           let jsonStr = String(data: jsonData, encoding: .utf8) {
+            let preview = String(jsonStr.prefix(500))
+            print("[NCM]    响应体: \(preview)\(jsonStr.count > 500 ? "..." : "")")
+        }
+        #endif
+
         // 7. 处理响应（状态码归一化、EAPI 解密、Cookie 更新、非 200 抛错）
-        return try processResponse(
-            statusCode: statusCode,
-            responseData: responseData,
-            responseBody: responseBody,
-            setCookieHeaders: setCookieHeaders,
-            options: options
-        )
+        do {
+            let result = try processResponse(
+                statusCode: statusCode,
+                responseData: responseData,
+                responseBody: responseBody,
+                setCookieHeaders: setCookieHeaders,
+                options: options
+            )
+            #if DEBUG
+            print("[NCM] ✅ \(uri) 完成 [\(ms)ms]")
+            #endif
+            return result
+        } catch {
+            #if DEBUG
+            print("[NCM] ❌ \(uri) 失败 [\(ms)ms] \(error)")
+            #endif
+            throw error
+        }
     }
 
     // MARK: - 响应处理

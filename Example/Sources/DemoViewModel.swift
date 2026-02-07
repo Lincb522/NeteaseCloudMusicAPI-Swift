@@ -133,8 +133,8 @@ class DemoViewModel: ObservableObject {
             // 1. 获取 key
             let keyResp = try await client.loginQrKey()
             let start = CFAbsoluteTimeGetCurrent()
-            guard let data = keyResp.body["data"] as? [String: Any],
-                  let unikey = data["unikey"] as? String else {
+            guard let unikey = (keyResp.body["data"] as? [String: Any])?["unikey"] as? String
+                    ?? keyResp.body["unikey"] as? String else {
                 qrStatusText = "获取二维码 Key 失败"
                 qrPolling = false
                 print("[NCMDemo] ❌ 获取 qrKey 失败: \(keyResp.body)")
@@ -145,12 +145,12 @@ class DemoViewModel: ObservableObject {
 
             // 2. 生成二维码
             let qrResp = try await client.loginQrCreate(key: unikey, qrimg: true)
-            if let qrData = qrResp.body["data"] as? [String: Any],
-               let qrurl = qrData["qrurl"] as? String {
+            let qrData = qrResp.body["data"] as? [String: Any] ?? qrResp.body
+            if let qrurl = qrData["qrurl"] as? String {
                 qrImage = generateQRCode(from: qrurl)
                 qrStatusText = "请使用网易云音乐 App 扫码"
                 print("[NCMDemo] ✅ 二维码已生成, URL: \(qrurl)")
-            } else if let qrimg = (qrResp.body["data"] as? [String: Any])?["qrimg"] as? String,
+            } else if let qrimg = qrData["qrimg"] as? String,
                       let imgData = Data(base64Encoded: qrimg.replacingOccurrences(of: "data:image/png;base64,", with: "")),
                       let img = UIImage(data: imgData) {
                 qrImage = img
