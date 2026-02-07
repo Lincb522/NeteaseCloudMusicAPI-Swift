@@ -225,6 +225,10 @@ public class SessionManager {
             let value = String(keyValue[1]).trimmingCharacters(in: .whitespaces)
             if !key.isEmpty {
                 cookies[key] = value
+                #if DEBUG
+                let preview = value.count > 30 ? String(value.prefix(30)) + "..." : value
+                print("[NCM] 🍪 Cookie 更新: \(key)=\(preview)")
+                #endif
             }
         }
     }

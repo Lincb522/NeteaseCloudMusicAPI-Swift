@@ -479,24 +479,74 @@ class RequestClient {
 
     /// 从 HTTP 响应中提取 Set-Cookie 头
     /// - Parameter response: HTTP 响应
-    /// - Returns: Set-Cookie 头字符串数组
+    /// - Returns: Set-Cookie 头字符串数组（每个 Cookie 一条）
     private func extractSetCookieHeaders(from response: HTTPURLResponse) -> [String] {
-        // HTTPURLResponse 的 allHeaderFields 中 Set-Cookie 可能被合并
-        // 尝试从 allHeaderFields 中提取
-        var setCookies: [String] = []
-
-        for (key, value) in response.allHeaderFields {
-            let headerName = "\(key)".lowercased()
-            if headerName == "set-cookie" {
-                // Set-Cookie 头可能包含多个值，用逗号分隔
-                // 但 Cookie 值本身也可能包含逗号（如 expires 日期）
-                // 所以直接作为单个字符串处理
-                let valueStr = "\(value)"
-                setCookies.append(valueStr)
+        // 优先使用 HTTPCookieStorage 解析（最可靠）
+        if let url = response.url,
+           let allHeaders = response.allHeaderFields as? [String: String] {
+            let httpCookies = HTTPCookie.cookies(withResponseHeaderFields: allHeaders, for: url)
+            if !httpCookies.isEmpty {
+                return httpCookies.map { cookie in
+                    "\(cookie.name)=\(cookie.value)"
+                }
             }
         }
 
+        // 回退：手动从 allHeaderFields 提取并拆分
+        var setCookies: [String] = []
+        for (key, value) in response.allHeaderFields {
+            let headerName = "\(key)".lowercased()
+            if headerName == "set-cookie" {
+                let valueStr = "\(value)"
+                // allHeaderFields 会把多个 Set-Cookie 用逗号合并
+                // 按 ", " + 大写字母开头的 key= 模式拆分
+                let parts = RequestClient.splitSetCookieHeader(valueStr)
+                setCookies.append(contentsOf: parts)
+            }
+        }
         return setCookies
+    }
+
+    /// 拆分被合并的 Set-Cookie 头字符串
+    /// HTTPURLResponse.allHeaderFields 会把多个 Set-Cookie 用 ", " 合并
+    /// 需要智能拆分，避免误拆 expires 中的逗号（如 "Thu, 01 Jan 2026"）
+    static func splitSetCookieHeader(_ header: String) -> [String] {
+        var results: [String] = []
+        var current = ""
+
+        // 按逗号拆分，但要判断逗号后面是否是新的 Cookie（key=value 格式）
+        let segments = header.components(separatedBy: ",")
+        for segment in segments {
+            let trimmed = segment.trimmingCharacters(in: .whitespaces)
+            // 判断是否是新的 Set-Cookie 条目：包含 "=" 且第一个 "=" 前没有空格和分号
+            let firstEquals = trimmed.firstIndex(of: "=")
+            let firstSemicolon = trimmed.firstIndex(of: ";")
+            let firstSpace = trimmed.firstIndex(of: " ")
+
+            let isNewCookie: Bool
+            if let eq = firstEquals {
+                // "=" 前面的部分应该是一个合法的 Cookie 名（无空格、无分号）
+                let beforeEquals = trimmed[trimmed.startIndex..<eq]
+                let hasSpaceBeforeEq = firstSpace != nil && firstSpace! < eq
+                let hasSemicolonBeforeEq = firstSemicolon != nil && firstSemicolon! < eq
+                isNewCookie = !beforeEquals.isEmpty && !hasSpaceBeforeEq && !hasSemicolonBeforeEq
+            } else {
+                isNewCookie = false
+            }
+
+            if isNewCookie && !current.isEmpty {
+                results.append(current.trimmingCharacters(in: .whitespaces))
+                current = trimmed
+            } else if current.isEmpty {
+                current = trimmed
+            } else {
+                current += "," + segment
+            }
+        }
+        if !current.isEmpty {
+            results.append(current.trimmingCharacters(in: .whitespaces))
+        }
+        return results
     }
 
     /// 解析响应体为 JSON 字典

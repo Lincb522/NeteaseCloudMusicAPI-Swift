@@ -170,14 +170,13 @@ public class NCMClient {
         let statusCode = httpResponse?.statusCode ?? 200
         let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
 
-        // 提取 Set-Cookie
+        // 提取 Set-Cookie（使用 HTTPCookie 解析，避免 allHeaderFields 合并问题）
         var setCookies: [String] = []
-        if let allHeaders = httpResponse?.allHeaderFields {
-            for (key, value) in allHeaders {
-                if "\(key)".lowercased() == "set-cookie" {
-                    setCookies.append("\(value)")
-                }
-            }
+        if let httpResp = httpResponse,
+           let respUrl = httpResp.url,
+           let allHeaders = httpResp.allHeaderFields as? [String: String] {
+            let httpCookies = HTTPCookie.cookies(withResponseHeaderFields: allHeaders, for: respUrl)
+            setCookies = httpCookies.map { "\($0.name)=\($0.value)" }
         }
 
         // 更新本地 Cookie
