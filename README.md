@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://p1.music.126.net/tBTNafgjNnTL1y0e7EvOvg==/109951163740862102.jpg" width="120" height="120" style="border-radius: 20px;" />
+  <img src="https://lincb522.github.io/NeteaseCloudMusicAPI-Swift/logo.svg" width="160" height="160" />
 </p>
 
 <h1 align="center">NeteaseCloudMusicAPI-Swift</h1>
