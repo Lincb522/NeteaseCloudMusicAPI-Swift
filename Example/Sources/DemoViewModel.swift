@@ -85,10 +85,15 @@ class DemoViewModel: ObservableObject {
 
     func applyCookie() {
         let trimmed = cookie.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty {
-            client.setCookie(trimmed)
-            print("[NCMDemo] Cookie 已手动设置")
+        if trimmed.isEmpty {
+            print("[NCMDemo] ⚠️ Cookie 为空，未设置")
+            return
         }
+        client.setCookie(trimmed)
+        print("[NCMDemo] ✅ Cookie 已手动设置: \(String(trimmed.prefix(60)))...")
+        print("[NCMDemo] 📋 当前 Cookie 键: \(client.currentCookies.keys.sorted().joined(separator: ", "))")
+        // 自动检查登录状态
+        Task { await fetchLoginStatus() }
     }
 
     // MARK: - 连接测试
