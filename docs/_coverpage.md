@@ -9,4 +9,4 @@
 [GitHub](https://github.com/Lincb522/NeteaseCloudMusicAPI-Swift)
 [开始使用](#neteaseCloudMusicAPI-swift-文档)
 
-![color](#F05138)
+![color](#1565C0)

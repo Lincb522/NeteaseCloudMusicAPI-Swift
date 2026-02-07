@@ -9,6 +9,7 @@
 </p>
 
 <p align="center">
+  <a href="https://lincb522.github.io/NeteaseCloudMusicAPI-Swift/">文档</a> •
   <a href="#安装">安装</a> •
   <a href="#快速开始">快速开始</a> •
   <a href="#两种模式">两种模式</a> •
