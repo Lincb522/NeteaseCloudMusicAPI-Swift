@@ -5,24 +5,23 @@
 <h1 align="center">NeteaseCloudMusicAPI-Swift</h1>
 
 <p align="center">
-  <strong>网易云音乐 API 的原生 Swift 封装</strong>
+  <strong>基于 <a href="https://github.com/Binaryify/NeteaseCloudMusicApi">NeteaseCloudMusicApi</a> 封装 362 个接口的原生 Swift SDK</strong>
 </p>
 
 <p align="center">
   <a href="https://lincb522.github.io/NeteaseCloudMusicAPI-Swift/">文档</a> •
+  <a href="#使用须知">使用须知</a> •
   <a href="#安装">安装</a> •
   <a href="#快速开始">快速开始</a> •
-  <a href="#两种模式">两种模式</a> •
   <a href="#api-分类">API 分类</a> •
   <a href="#示例应用">示例应用</a> •
-  <a href="#架构设计">架构设计</a>
+  <a href="#致谢">致谢</a>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Swift-5.9+-F05138?style=flat-square&logo=swift&logoColor=white" />
   <img src="https://img.shields.io/badge/平台-iOS%2015+%20|%20macOS%2012+%20|%20tvOS%2015+%20|%20watchOS%208+-blue?style=flat-square" />
   <img src="https://img.shields.io/badge/API-362%20个接口-green?style=flat-square" />
-  <img src="https://img.shields.io/badge/测试-78%20通过-brightgreen?style=flat-square" />
   <img src="https://img.shields.io/badge/依赖-零依赖-orange?style=flat-square" />
 </p>
 
@@ -32,11 +31,24 @@
 
 - 🎵 **362 个 API 接口** — 完整覆盖网易云音乐全部功能
 - 🔐 **四种加密模式** — WeAPI / EAPI / LinuxAPI / 明文，与官方客户端一致
-- 🔄 **双模式运行** — 直连网易云（客户端加密）或走自部署 Node 后端
-- 🍎 **全平台支持** — iOS / macOS / tvOS / watchOS
+- 🍎 **Apple 全系平台** — iOS / macOS / tvOS / watchOS
 - 📦 **零外部依赖** — 仅使用 Foundation + CommonCrypto
-- 🧪 **78 个测试用例** — 包含属性测试，覆盖加密、网络、会话管理
 - 🎯 **Swift 原生** — async/await、强类型枚举、完整中文文档注释
+
+---
+
+## ⚠️ 使用须知
+
+> 本项目仅供学习使用，请尊重版权，请勿利用此项目从事商业行为或进行破坏版权行为
+
+- 本项目需要配合 [NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) 后端服务使用，请先自行部署后端
+- 不要频繁调用登录接口，否则可能会被风控。登录状态还存在就不要重复调用登录接口
+- 部分接口不能调用太频繁，否则可能会触发 503 错误或 IP 高频错误
+- 建议使用二维码登录或验证码登录，密码登录可能触发安全验证
+- 由于网易限制，在国外服务器上使用会受到限制（如 `460 cheating` 异常），建议在国内网络环境下使用
+- 图片 URL 加上 `?param=宽y高` 可控制图片尺寸，如 `http://p4.music.126.net/xxx.jpg?param=200y200`
+- 分页接口返回字段里有 `more`，`more` 为 `true` 则表示有下一页
+- 需要登录的接口（如每日推荐、用户歌单等），未登录调用会返回错误码 301
 
 ---
 
@@ -58,11 +70,13 @@ dependencies: [
 
 ## 快速开始
 
+首先部署 [NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) 后端服务，然后：
+
 ```swift
 import NeteaseCloudMusicAPI
 
-// 创建客户端
-let client = NCMClient()
+// 创建客户端，指向你的后端服务
+let client = NCMClient(serverUrl: "http://localhost:3000")
 
 // 搜索歌曲
 let result = try await client.cloudsearch(keywords: "周杰伦")
@@ -79,45 +93,10 @@ print(lyric.body)
 
 ---
 
-## 两种模式
-
-### 模式一：直连网易云（默认）
-
-客户端自行加密请求，直接与网易云服务器通信。无需部署后端。
-
-```swift
-let client = NCMClient()
-
-// 可选：自定义网易云域名（用于代理场景）
-let client = NCMClient(
-    domain: "https://music.163.com",
-    apiDomain: "https://interface.music.163.com"
-)
-```
-
-### 模式二：后端代理
-
-请求发送到你部署的 [NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) Node 后端，由后端处理加密和转发。
-
-```swift
-// 初始化时指定
-let client = NCMClient(serverUrl: "http://localhost:3000")
-
-// 或运行时切换
-client.serverUrl = "https://my-ncm-api.example.com"
-
-// 切回直连模式
-client.serverUrl = nil
-```
-
-> 后端代理模式下，`/api/song/detail` 会自动转为 `/song/detail` 路由，POST JSON 明文参数。
-
----
-
 ## 登录与 Cookie
 
 ```swift
-let client = NCMClient()
+let client = NCMClient(serverUrl: "http://localhost:3000")
 
 // 方式一：手机号登录
 let loginResult = try await client.loginCellphone(phone: "13800138000", password: "your_password")
@@ -490,7 +469,7 @@ let result = try await client.songUrlNcmget(
 
 ## 示例应用
 
-`Example/` 目录包含一个完整的 macOS SwiftUI 示例应用：
+`Example/` 目录包含一个完整的 iOS SwiftUI 示例应用：
 
 ```bash
 cd Example
@@ -498,7 +477,7 @@ swift run
 ```
 
 功能包括：
-- ⚙️ 设置 — 配置直连/代理模式、Cookie、连接测试
+- ⚙️ 设置 — 配置后端服务地址、Cookie、连接测试
 - 🔍 搜索 — 搜索歌曲 + 歌词展示
 - 📋 歌单 — 热门歌单浏览 + 歌曲列表
 - 📊 排行榜 — 全部排行榜网格展示
@@ -533,7 +512,7 @@ swift run
 | **加密层** | `CryptoEngine` | AES-CBC/ECB 加解密、RSA 无填充加密、MD5 哈希 |
 | **网络层** | `RequestClient` | URL 路径重写、加密分发、HTTP POST、响应解密 |
 | **会话层** | `SessionManager` | Cookie 管理、设备元数据、UA 选择、EAPI Header |
-| **入口层** | `NCMClient` | 362 个 API 方法、双模式路由、Cookie 设置 |
+| **入口层** | `NCMClient` | 362 个 API 方法、后端代理路由、Cookie 设置 |
 
 ### API 扩展文件
 
@@ -570,31 +549,22 @@ NeteaseCloudMusicAPI-Swift/
 │   ├── Network/RequestClient.swift  # HTTP 请求客户端
 │   ├── Session/SessionManager.swift # 会话管理
 │   └── Models/                      # 枚举、常量、错误、响应类型
-├── Tests/                           # 78 个测试用例
 └── Example/                         # SwiftUI 示例应用
 ```
 
 ---
 
-## 测试
-
-```bash
-swift test
-```
-
-测试覆盖：
-- `CryptoEngineTests` — 加密原语单元测试 (36 个)
-- `CryptoEnginePropertyTests` — 加密属性测试 (3 个)
-- `EnumsPropertyTests` — 枚举完整性测试 (27 个)
-- `RequestClientPropertyTests` — 请求客户端测试 (6 个)
-- `SessionManagerPropertyTests` — 会话管理测试 (5 个)
-- `NeteaseCloudMusicAPITests` — 常量定义测试 (1 个)
-
----
-
 ## 致谢
 
-本项目基于 [NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) 的 Node.js 实现，将其 364 个模块完整移植为原生 Swift。
+本项目的灵感和 API 参考来自以下优秀的开源项目：
+
+- [Binaryify/NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) — 网易云音乐 Node.js API 服务，本项目的核心参考，364 个模块完整移植为原生 Swift
+- [darknessomi/musicbox](https://github.com/darknessomi/musicbox) — 网易云音乐命令行客户端，加密算法参考
+- [disoul/electron-cloud-music](https://github.com/nicerloop/electron-cloud-music) — 网易云音乐 Electron 客户端
+- [sqaiyan/netmusic-node](https://github.com/sqaiyan/netmusic-node) — 网易云音乐 Node.js API 封装
+- [UnblockNeteaseMusic](https://github.com/UnblockNeteaseMusic/server) — 解锁网易云音乐灰色歌曲，第三方解灰功能参考
+
+感谢以上项目的作者和贡献者们。
 
 ---
 

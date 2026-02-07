@@ -1,12 +1,12 @@
 # NeteaseCloudMusicAPI-Swift
 
-> 🎵 网易云音乐 API 原生 Swift SDK — 362 个接口全覆盖
+> 基于 [NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) 封装 362 个接口的原生 Swift SDK
 
-- 四种加密模式 · 双模式运行 · 全平台支持
-- async/await · 零外部依赖 · 78 个测试用例
-- 完整中文文档 · SwiftUI 示例应用
+- <i data-lucide="lock" style="width:16px;height:16px;vertical-align:middle;stroke:#22C55E"></i> 四种加密模式 · 后端代理 · iOS / macOS / tvOS / watchOS
+- <i data-lucide="zap" style="width:16px;height:16px;vertical-align:middle;stroke:#22C55E"></i> async/await · 零外部依赖 · 强类型枚举
+- <i data-lucide="book-open" style="width:16px;height:16px;vertical-align:middle;stroke:#22C55E"></i> 完整中文文档 · SwiftUI 示例应用
 
 [GitHub](https://github.com/Lincb522/NeteaseCloudMusicAPI-Swift)
 [开始使用](#neteaseCloudMusicAPI-swift-文档)
 
-![color](#1565C0)
+![color](#ffffff)
