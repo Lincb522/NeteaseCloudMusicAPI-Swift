@@ -1,5 +1,16 @@
 # 更新日志
 
+## 1.3.0 (2026-02-08)
+
+### 新功能
+- 自动解灰：`songUrl` / `songUrlV1` 获取到不可用链接时自动尝试第三方音源匹配
+- NCMClient 新增 `unblockManager` 和 `autoUnblock` 属性，三行代码即可开启
+- 自动获取歌曲详情（歌名+歌手）提高音源匹配率
+- 解灰成功后在响应中标记 `_unblocked` 和 `_unblockedFrom`，方便调用方判断
+- 检测条件：无 URL、试听限制（freeTrialInfo）、VIP/付费歌曲（fee=1/4）
+
+---
+
 ## 1.2.1 (2026-02-08)
 
 ### 修复
