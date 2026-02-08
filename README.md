@@ -23,7 +23,7 @@
 - 🔐 **四种加密模式** — WeAPI / EAPI / LinuxAPI / 明文
 - 🍎 **Apple 全系平台** — iOS 15+ / macOS 12+ / tvOS 15+ / watchOS 8+
 - 📦 **零外部依赖** — 仅 Foundation + CommonCrypto
-- 🔓 **多音源解灰** — 协议化架构，内置 UNM / HTTP API / 洛雪音源，支持自定义扩展
+- 🔓 **多音源解灰** — 协议化架构，支持导入第三方 JS 音源和自定义地址，可自定义扩展
 - 🎯 **Swift 原生** — async/await、强类型枚举、完整中文注释
 
 ---

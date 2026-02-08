@@ -23,7 +23,7 @@ struct UnblockView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("导入 JS 音源脚本")
                                 .font(.subheadline)
-                            Text("支持洛雪音乐助手格式的 .js 音源文件")
+                            Text("支持第三方 .js 音源文件")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -266,7 +266,7 @@ struct JSFilePickerView: View {
                 Text("导入 JS 音源脚本")
                     .font(.title2.bold())
 
-                Text("选择洛雪音乐助手格式的 .js 音源文件。\n脚本需导出 getUrl(songId, quality) 函数。")
+                Text("选择第三方 .js 音源文件。\n脚本需导出 getUrl(songId, quality) 函数。")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -366,7 +366,7 @@ struct AddURLSourceView: View {
                     Group {
                         Text("• 标准格式: https://api.example.com/api.php")
                         Text("• UNM 格式: http://localhost:8080/match")
-                        Text("• 洛雪格式: http://localhost:9763/url/wy/{id}/{quality}")
+                        Text("• 自定义格式: http://localhost:9763/url/wy/{id}/{quality}")
                     }
                     .font(.caption)
                     .foregroundColor(.secondary)

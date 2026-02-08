@@ -49,7 +49,7 @@ public struct UnblockResult {
 // MARK: - JS 脚本音源
 
 /// JS 脚本音源
-/// 支持导入洛雪音乐助手格式的 JS 音源脚本文件
+/// 支持导入第三方 JS 音源脚本文件
 /// JS 脚本需导出以下函数:
 /// - `getUrl(songId, quality)` 返回 `{ url: "...", quality: "..." }` 或 URL 字符串
 /// - 可选: `getMusicInfo()` 返回 `{ name: "音源名", platforms: [...] }`

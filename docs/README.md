@@ -3004,7 +3004,7 @@ for item in allResults {
 
 #### JSScriptSource — JS 脚本音源
 
-支持导入洛雪音乐助手格式的 JS 音源脚本文件。使用 `JavaScriptCore` 执行脚本。
+支持导入第三方 JS 音源脚本文件。使用 `JavaScriptCore` 执行脚本。
 
 JS 脚本需导出以下函数：
 - `getUrl(songId, quality)` — 返回 `{ url: "...", quality: "..." }` 对象或 URL 字符串
@@ -3024,7 +3024,7 @@ let source = JSScriptSource(name: "我的音源", script: """
 """)
 
 // 从文件初始化
-let source = try JSScriptSource(name: "洛雪音源", fileURL: fileURL)
+let source = try JSScriptSource(name: "第三方音源", fileURL: fileURL)
 ```
 
 | 参数 | 类型 | 必选 | 说明 |
@@ -3113,7 +3113,7 @@ func songUrlUnblock(manager: UnblockManager, id: Int, title: String?, artist: St
 let manager = UnblockManager()
 
 // 导入 JS 音源
-let jsSource = JSScriptSource(name: "洛雪音源", script: jsContent)
+let jsSource = JSScriptSource(name: "第三方音源", script: jsContent)
 manager.register(jsSource)
 
 // 添加自定义地址音源
