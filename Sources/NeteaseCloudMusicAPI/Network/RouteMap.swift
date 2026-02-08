@@ -550,10 +550,13 @@ enum RouteMap {
                 result["ids"] = ids.joined(separator: ",")
             }
 
-        // cloudsearch: SDK 传 s=关键词, 后端期望 keywords=关键词
+        // cloudsearch / search: SDK 传 s 或 keyword, 后端期望 keywords
         case "/api/cloudsearch/pc", "/api/search/get", "/api/search/voice/get":
             if let s = data["s"] as? String {
                 result["keywords"] = s
+            }
+            if let kw = data["keyword"] as? String, result["keywords"] == nil {
+                result["keywords"] = kw
             }
 
         // search_suggest: SDK 传 s, 后端期望 keywords
@@ -562,11 +565,469 @@ enum RouteMap {
                 result["keywords"] = s
             }
 
+        // dj_detail: SDK 传 id, 后端期望 rid
+        case "/api/djradio/v2/get":
+            if let id = data["id"] {
+                result["rid"] = id
+            }
+
         // 评论相关: SDK 传 rid, 后端期望 id
         case let path where path.hasPrefix("/api/v1/resource/comments/"):
             if let rid = data["rid"] {
                 result["id"] = rid
             }
+
+        // ============================================================
+        // 以下为批量审计发现的参数名不匹配（SDK key → 后端 query key）
+        // ============================================================
+
+        // --- songId → id 系列 ---
+        case "/api/radio/like":
+            // like.js: 后端期望 id, SDK 传 trackId
+            if let v = data["trackId"] { result["id"] = v }
+
+        case "/api/radio/trash/add":
+            // fm_trash.js: 后端期望 id, SDK 传 songId
+            if let v = data["songId"] { result["id"] = v }
+
+        case "/api/song/chorus":
+            // song_chorus.js: 后端期望 id, SDK 传 ids
+            if let v = data["ids"] { result["id"] = v }
+
+        case "/api/songplay/dynamic-cover":
+            // song_dynamic_cover.js: 后端期望 id, SDK 传 songId
+            if let v = data["songId"] { result["id"] = v }
+
+        case "/api/song/play/lyrics/mark/song":
+            // song_lyrics_mark.js: 后端期望 id, SDK 传 songId
+            if let v = data["songId"] { result["id"] = v }
+
+        case "/api/song/play/lyrics/mark/add":
+            // song_lyrics_mark_add.js: 后端期望 id, SDK 传 songId
+            if let v = data["songId"] { result["id"] = v }
+
+        case "/api/song/music/detail/get":
+            // song_music_detail.js: 后端期望 id, SDK 传 songId
+            if let v = data["songId"] { result["id"] = v }
+
+        case "/api/song/red/count":
+            // song_red_count.js: 后端期望 id, SDK 传 songId
+            if let v = data["songId"] { result["id"] = v }
+
+        case "/api/song/play/about/block/page":
+            // song_wiki_summary.js: 后端期望 id, SDK 传 songId
+            if let v = data["songId"] { result["id"] = v }
+
+        case "/api/content/activity/music/first/listen/info":
+            // music_first_listen_info.js: 后端期望 id, SDK 传 songId
+            if let v = data["songId"] { result["id"] = v }
+
+        case "/api/yunbei/rcmd/song/submit":
+            // yunbei_rcmd_song.js: 后端期望 id, SDK 传 songId
+            if let v = data["songId"] { result["id"] = v }
+
+        case "/api/mlog/video/convert/id":
+            // mlog_to_video.js: 后端期望 id, SDK 传 mlogId
+            if let v = data["mlogId"] { result["id"] = v }
+
+        case "/api/voice/lyric/get":
+            // voice_lyric.js: 后端期望 id, SDK 传 programId
+            if let v = data["programId"] { result["id"] = v }
+
+        // --- artistId → id ---
+        case "/api/artist/mvs":
+            // artist_mv.js: 后端期望 id, SDK 传 artistId
+            if let v = data["artistId"] { result["id"] = v }
+
+        case "/api/mlog/artist/video":
+            // artist_video.js: 后端期望 id, SDK 传 artistId
+            if let v = data["artistId"] { result["id"] = v }
+
+        // --- UGC 系列: xxxId → id ---
+        case "/api/rep/ugc/album/get":
+            if let v = data["albumId"] { result["id"] = v }
+
+        case "/api/rep/ugc/artist/get":
+            if let v = data["artistId"] { result["id"] = v }
+
+        case "/api/rep/ugc/mv/get":
+            if let v = data["mvId"] { result["id"] = v }
+
+        case "/api/rep/ugc/song/get":
+            if let v = data["songId"] { result["id"] = v }
+
+        // --- userId → uid ---
+        case "/api/msg/private/history":
+            // msg_private_history.js: 后端期望 uid, SDK 传 userId
+            if let v = data["userId"] { result["uid"] = v }
+
+        case "/api/djradio/get/byuser":
+            // user_audio.js: 后端期望 uid, SDK 传 userId
+            if let v = data["userId"] { result["uid"] = v }
+
+        // --- 其他特殊转换 ---
+        case "/api/cloudvideo/playurl":
+            // video_url.js: 后端期望 id, SDK 传 ids
+            if let v = data["ids"] { result["id"] = v }
+
+        case "/api/event/forward":
+            // event_forward.js: 后端期望 evId + uid, SDK 传 id + eventUserId
+            if let v = data["id"] { result["evId"] = v }
+            if let v = data["eventUserId"] { result["uid"] = v }
+
+        case "/api/playmode/intelligence/list":
+            // playmode_intelligence_list.js: 后端期望 id + pid + sid
+            // SDK 传 songId + playlistId + startMusicId
+            if let v = data["songId"] { result["id"] = v }
+            if let v = data["playlistId"] { result["pid"] = v }
+            if let v = data["startMusicId"] { result["sid"] = v }
+
+        case "/api/playlist/remove":
+            // playlist_delete.js: 后端期望 id, SDK 传 ids
+            if let v = data["ids"] { result["id"] = v }
+
+        case "/api/playlist/track/add":
+            // playlist_track_add.js: 后端期望 pid, SDK 传 id
+            if let v = data["id"] { result["pid"] = v }
+
+        // --- 以下为第二批审计发现的参数名不匹配 ---
+
+        // cellphone → phone
+        case "/api/sms/captcha/sent":
+            if let v = data["cellphone"] { result["phone"] = v }
+
+        case "/api/sms/captcha/verify":
+            if let v = data["cellphone"] { result["phone"] = v }
+
+        case "/api/cellphone/existence/check":
+            if let v = data["cellphone"] { result["phone"] = v }
+
+        // login: username → email
+        case "/api/w/login":
+            if let v = data["username"] { result["email"] = v }
+
+        // songIds → id
+        case "/api/v1/cloud/get/byids":
+            if let v = data["songIds"] { result["id"] = v }
+
+        case "/api/cloud/del":
+            if let v = data["songIds"] { result["id"] = v }
+
+        // cloud_match: songId → sid, adjustSongId → asid（uid 已在上面处理）
+        case "/api/cloud/user/song/match":
+            if let v = data["userId"] { result["uid"] = v }
+            if let v = data["songId"] { result["sid"] = v }
+            if let v = data["adjustSongId"] { result["asid"] = v }
+
+        // cloud_lyric_get: songId → sid（uid 已在上面处理）
+        case "/api/cloud/lyric/get":
+            if let v = data["userId"] { result["uid"] = v }
+            if let v = data["songId"] { result["sid"] = v }
+
+        // comment_new: threadId 解析出 id + type
+        case "/api/v2/resource/comments":
+            if let tid = data["threadId"] as? String {
+                // threadId 格式: R_SO_4_12345 → type=0, id=12345
+                let typeMap = ["R_SO_4_": 0, "R_MV_5_": 1, "A_PL_0_": 2, "R_AL_3_": 3, "A_DJ_1_": 4, "R_VI_62_": 5, "A_EV_2_": 6]
+                for (prefix, typeVal) in typeMap {
+                    if tid.hasPrefix(prefix) {
+                        result["id"] = String(tid.dropFirst(prefix.count))
+                        result["type"] = typeVal
+                        break
+                    }
+                }
+            }
+
+        // comment_floor: threadId 解析出 id + type
+        case "/api/resource/comment/floor/get":
+            if let tid = data["threadId"] as? String {
+                let typeMap = ["R_SO_4_": 0, "R_MV_5_": 1, "A_PL_0_": 2, "R_AL_3_": 3, "A_DJ_1_": 4, "R_VI_62_": 5, "A_EV_2_": 6]
+                for (prefix, typeVal) in typeMap {
+                    if tid.hasPrefix(prefix) {
+                        result["id"] = String(tid.dropFirst(prefix.count))
+                        result["type"] = typeVal
+                        break
+                    }
+                }
+            }
+
+        // comment_hug_list: commentId → cid, targetUserId → uid, threadId → sid + type
+        case "/api/v2/resource/comments/hug/list":
+            if let v = data["commentId"] { result["cid"] = v }
+            if let v = data["targetUserId"] { result["uid"] = v }
+            if let tid = data["threadId"] as? String {
+                let typeMap = ["R_SO_4_": 0, "R_MV_5_": 1, "A_PL_0_": 2, "R_AL_3_": 3, "A_DJ_1_": 4, "R_VI_62_": 5, "A_EV_2_": 6]
+                for (prefix, typeVal) in typeMap {
+                    if tid.hasPrefix(prefix) {
+                        result["sid"] = String(tid.dropFirst(prefix.count))
+                        result["type"] = typeVal
+                        break
+                    }
+                }
+            }
+
+        // hug_comment: commentId → cid, targetUserId → uid, threadId → sid + type
+        case "/api/v2/resource/comments/hug/listener":
+            if let v = data["commentId"] { result["cid"] = v }
+            if let v = data["targetUserId"] { result["uid"] = v }
+            if let tid = data["threadId"] as? String {
+                let typeMap = ["R_SO_4_": 0, "R_MV_5_": 1, "A_PL_0_": 2, "R_AL_3_": 3, "A_DJ_1_": 4, "R_VI_62_": 5, "A_EV_2_": 6]
+                for (prefix, typeVal) in typeMap {
+                    if tid.hasPrefix(prefix) {
+                        result["sid"] = String(tid.dropFirst(prefix.count))
+                        result["type"] = typeVal
+                        break
+                    }
+                }
+            }
+
+        // dj_program: radioId → rid
+        case "/api/dj/program/byradio":
+            if let v = data["radioId"] { result["rid"] = v }
+
+        // dj_recommend_type: cateId → type
+        case "/api/djradio/recommend":
+            if let v = data["cateId"] { result["type"] = v }
+
+        // mv_detail: id → mvid
+        case "/api/v1/mv/detail":
+            if let v = data["id"] { result["mvid"] = v }
+
+        // video_detail_info: threadid → vid（从 threadid 提取）
+        case "/api/comment/commentthread/info":
+            if let tid = data["threadid"] as? String {
+                // threadid 格式可能是 R_MV_5_xxx 或 R_VI_62_xxx
+                let prefixes = ["R_MV_5_", "R_VI_62_"]
+                for prefix in prefixes {
+                    if tid.hasPrefix(prefix) {
+                        result["vid"] = String(tid.dropFirst(prefix.count))
+                        break
+                    }
+                }
+                if result["vid"] == nil {
+                    result["vid"] = tid
+                }
+            }
+
+        // video_group: groupId → id
+        case "/api/videotimeline/videogroup/otherclient/get":
+            if let v = data["groupId"] { result["id"] = v }
+
+        // send_text/song/playlist/album: userIds → user_ids
+        case "/api/msg/private/send":
+            if let v = data["userIds"] { result["user_ids"] = v }
+
+        // simi 系列: songid → id
+        case "/api/discovery/simiArtist":
+            if let v = data["artistid"] { result["id"] = v }
+
+        case "/api/discovery/simiPlaylist", "/api/v1/discovery/simiSong", "/api/discovery/simiUser":
+            if let v = data["songid"] { result["id"] = v }
+
+        // digitalAlbum_sales: albumIds → ids
+        case "/api/vipmall/albumproduct/album/query/sales":
+            if let v = data["albumIds"] { result["ids"] = v }
+
+        // event_del: id → evId
+        case "/api/event/delete":
+            if let v = data["id"] { result["evId"] = v }
+
+        // mlog_music_rcmd: id → songid（后端期望 songid）
+        case "/api/mlog/rcmd/feed/list":
+            if let v = data["id"] { result["songid"] = v }
+
+        // musician_cloudbean_obtain: userMissionId → id
+        case "/api/nmusician/workbench/mission/reward/obtain/new":
+            if let v = data["userMissionId"] { result["id"] = v }
+
+        // voicelist_list_search: radioId → voiceListId
+        case "/api/voice/workbench/voice/list":
+            if let v = data["radioId"] { result["voiceListId"] = v }
+
+        // broadcast_channel_currentinfo: channelId → id
+        case "/api/voice/broadcast/channel/currentinfo":
+            if let v = data["channelId"] { result["id"] = v }
+
+        // broadcast_sub: contentId → id, cancelCollect → t
+        case "/api/content/interact/collect":
+            if let v = data["contentId"] { result["id"] = v }
+            if let v = data["cancelCollect"] as? Bool {
+                result["t"] = v ? 0 : 1
+            }
+
+        // playlist_tracks / song_order_update: trackIds → ids
+        case "/api/playlist/manipulate/tracks":
+            if let v = data["trackIds"] { result["ids"] = v }
+
+        // playlist_detail_rcmd_get: playlistId → id
+        case "/api/playlist/detail/rcmd/get":
+            if let v = data["playlistId"] { result["id"] = v }
+
+        // playlist_import_task_status: taskIds → id
+        case "/api/playlist/import/task/status/v2":
+            if let v = data["taskIds"] { result["id"] = v }
+
+        // personal_fm_mode: subMode → submode（大小写）+ 默认 mode
+        case "/api/v1/radio/get":
+            if let v = data["subMode"] { result["submode"] = v }
+            if result["mode"] == nil { result["mode"] = "DEFAULT" }
+
+        // recommend_songs_dislike: resId → id
+        case "/api/v2/discovery/recommend/dislike":
+            if let v = data["resId"] { result["id"] = v }
+
+        // program_recommend: cateId → type
+        case "/api/program/recommend/v1":
+            if let v = data["cateId"] { result["type"] = v }
+
+        // song_like_check: trackIds → ids
+        case "/api/song/like/check":
+            if let v = data["trackIds"] { result["ids"] = v }
+
+        // song_lyrics_mark_del: markIds → id
+        case "/api/song/play/lyrics/mark/del":
+            if let v = data["markIds"] { result["id"] = v }
+
+        // user_comment_history: user_id → uid
+        case "/api/comment/user/comment/history":
+            if let v = data["user_id"] { result["uid"] = v }
+
+        // user_mutualfollow_get: friendid → uid
+        case "/api/user/mutualfollow/get":
+            if let v = data["friendid"] { result["uid"] = v }
+
+        // user_social_status: visitorId → uid
+        case "/api/social/user/status":
+            if let v = data["visitorId"] { result["uid"] = v }
+
+        // vip_growthpoint_get: taskIds → ids
+        case "/api/vipnewcenter/app/level/task/reward/get":
+            if let v = data["taskIds"] { result["ids"] = v }
+
+        // verify_qrcodestatus: qrCode → qr
+        case "/api/frontrisk/verify/qrcodestatus":
+            if let v = data["qrCode"] { result["qr"] = v }
+
+        // ============================================================
+        // 以下为第三批审计：SDK 组装 JSON 后端需要拆解回各字段
+        // ============================================================
+
+        // digitalAlbum_ordering: SDK 传 paymentMethod + digitalResources JSON
+        // 后端期望 payment + id + quantity（后端自己组装 digitalResources）
+        case "/api/ordering/web/digital":
+            if let v = data["paymentMethod"] { result["payment"] = v }
+            // 从 digitalResources JSON 中提取 id 和 quantity
+            if let dr = data["digitalResources"] as? String,
+               let drData = dr.data(using: .utf8),
+               let arr = try? JSONSerialization.jsonObject(with: drData) as? [[String: Any]],
+               let first = arr.first {
+                if let rid = first["resourceID"] { result["id"] = rid }
+                if let qty = first["quantity"] { result["quantity"] = qty }
+            }
+
+        // listentogether_play_command: SDK 传 commandInfo JSON
+        // 后端期望 commandType + playStatus + formerSongId + targetSongId + clientSeq
+        case "/api/listen/together/play/command/report":
+            if let ci = data["commandInfo"] as? String,
+               let ciData = ci.data(using: .utf8),
+               let obj = try? JSONSerialization.jsonObject(with: ciData) as? [String: Any] {
+                for key in ["commandType", "playStatus", "formerSongId", "targetSongId", "clientSeq", "progress"] {
+                    if let v = obj[key] { result[key] = v }
+                }
+            }
+
+        // listentogether_sync_list_command: SDK 传 playlistParam JSON
+        // 后端期望 commandType + userId + version + randomList + displayList
+        case "/api/listen/together/sync/list/command/report":
+            if let pp = data["playlistParam"] as? String,
+               let ppData = pp.data(using: .utf8),
+               let obj = try? JSONSerialization.jsonObject(with: ppData) as? [String: Any] {
+                if let v = obj["commandType"] { result["commandType"] = v }
+                // version 是数组 [{userId, version}]，取第一个
+                if let vArr = obj["version"] as? [[String: Any]], let first = vArr.first {
+                    if let uid = first["userId"] { result["userId"] = uid }
+                    if let ver = first["version"] { result["version"] = ver }
+                }
+                // randomList/displayList: 后端期望逗号分隔字符串
+                if let rl = obj["randomList"] as? [Any] {
+                    result["randomList"] = rl.map { "\($0)" }.joined(separator: ",")
+                }
+                if let dl = obj["displayList"] as? [Any] {
+                    result["displayList"] = dl.map { "\($0)" }.joined(separator: ",")
+                }
+            }
+
+        // verify_getQr: SDK 传 verifyConfigId/verifyType/params JSON
+        // 后端期望 vid/type/token/evid/sign
+        case "/api/frontrisk/verify/getqrcode":
+            if let v = data["verifyConfigId"] { result["vid"] = v }
+            if let v = data["verifyType"] { result["type"] = v }
+            // 从 params JSON 中提取 evid 和 sign
+            if let p = data["params"] as? String,
+               let pData = p.data(using: .utf8),
+               let obj = try? JSONSerialization.jsonObject(with: pData) as? [String: Any] {
+                if let v = obj["event_id"] { result["evid"] = v }
+                if let v = obj["sign"] { result["sign"] = v }
+            }
+
+        // user_social_status_edit: SDK 传 content JSON
+        // 后端期望 type/iconUrl/content/actionUrl（后端自己组装 content JSON）
+        case "/api/social/user/status/edit":
+            if let c = data["content"] as? String,
+               let cData = c.data(using: .utf8),
+               let obj = try? JSONSerialization.jsonObject(with: cData) as? [String: Any] {
+                if let v = obj["type"] { result["type"] = v }
+                if let v = obj["iconUrl"] { result["iconUrl"] = v }
+                if let v = obj["content"] as? String { result["content"] = v }
+                if let v = obj["actionUrl"] { result["actionUrl"] = v }
+            }
+
+        // search_match: SDK 传 songs JSON
+        // 后端期望 title/artist/album/duration/md5
+        case "/api/search/match/new":
+            if let s = data["songs"] as? String,
+               let sData = s.data(using: .utf8),
+               let arr = try? JSONSerialization.jsonObject(with: sData) as? [[String: Any]],
+               let first = arr.first {
+                if let v = first["title"] { result["title"] = v }
+                if let v = first["artist"] { result["artist"] = v }
+                if let v = first["album"] { result["album"] = v }
+                if let v = first["duration"] { result["duration"] = v }
+                if let v = first["persistId"] { result["md5"] = v }
+            }
+
+        // playlist_track_all / playlist_detail: 后端 limit/offset 是 JS 层分页
+        // SDK 传 id/n/s，后端也需要 limit/offset（有默认值但显式传更好）
+        case "/api/v6/playlist/detail":
+            if result["limit"] == nil { result["limit"] = 1000 }
+            if result["offset"] == nil { result["offset"] = 0 }
+
+        // song_url_v1: level 已在 SDK data 中，无需转换
+        // source/unblock 为后端解灰参数，SDK 自动解灰不需要
+        // （ids→id 转换已在上方 case 处理）
+
+        // personal_fm: mode 默认值已在上方 case 处理
+
+        // playlist_update (batch): SDK 传 /api/xxx 格式的 key
+        // 后端 playlist_update.js 期望 id + name，但 SDK 已经把参数嵌入 JSON value 中
+        // batch.js 直接透传 /api/ 开头的 key，所以不需要额外转换
+        // （此处不做处理，batch 接口的参数格式本身就是特殊的）
+
+        // cloud_import: SDK 自己实现两步请求，参数格式已正确
+        // 后端 cloud_import.js 也是两步请求，SDK 直接调 API 路径是正确的
+
+        // playlist_import_name_task_create: SDK 传 songs JSON
+        // 后端期望 link/local/text（三选一），SDK 的 songs 已经是组装好的
+        // 后端会根据 local/text/link 参数来决定导入方式
+        case "/api/playlist/import/name/task/create":
+            // songs 参数 SDK 已组装好，后端也接受 songs
+            // 但如果 SDK 没传 link/local/text，后端可能需要
+            // 实际上后端最终也是用 songs 参数调 API，所以兼容
+            break
+
+        // top_list: 后端 idx 传了直接返回 500，不需要
+
+        // aidj_content_rcmd: latitude/longitude 是可选的
 
         default:
             break

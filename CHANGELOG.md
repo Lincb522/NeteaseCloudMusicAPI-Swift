@@ -1,5 +1,16 @@
 # 更新日志
 
+## 1.3.3 (2026-02-08)
+
+### 修复
+- 全量参数审计：修复 71 个后端代理模式下 SDK 参数名与后端期望参数名不匹配的问题
+- 涵盖 songId→id、userId→uid、artistId→id、trackId→id、cellphone→phone、threadId 解析等多种转换模式
+- 评论相关接口（comment_new/floor/hug_list/hug_comment）自动从 threadId 解析出 id + type
+- 搜索预建议：type 路径参数提取 + s/keyword→keywords 转换
+- 电台详情：id→rid 转换
+
+---
+
 ## 1.3.2 (2026-02-08)
 
 ### 修复

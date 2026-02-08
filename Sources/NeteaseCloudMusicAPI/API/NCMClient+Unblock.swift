@@ -304,14 +304,16 @@ public class JSScriptSource: NCMUnblockSource {
             throw NCMError.invalidURL
         }
 
-        // 确定使用哪个 source（优先 wy/网易云）
-        let sourceKey: String
+        // 构建源优先级列表：优先 wy，然后尝试其他所有可用源
+        var sourceKeys: [String] = []
         if lxSources.keys.contains("wy") {
-            sourceKey = "wy"
-        } else if let first = lxSources.keys.first {
-            sourceKey = first
-        } else {
-            sourceKey = "wy"
+            sourceKeys.append("wy")
+        }
+        for key in lxSources.keys.sorted() where key != "wy" {
+            sourceKeys.append(key)
+        }
+        if sourceKeys.isEmpty {
+            sourceKeys.append("wy")
         }
 
         // 映射音质：320 -> 320k, 128 -> 128k, flac 等
@@ -336,7 +338,47 @@ public class JSScriptSource: NCMUnblockSource {
         let handler = self.lxRequestHandler!
         let sourceName = self.name
 
-        // 在后台线程执行，避免主线程 semaphore 死锁
+        // 逐个源尝试，任一成功即返回
+        for sourceKey in sourceKeys {
+            do {
+                let result = try await matchLxFormatSingle(
+                    sourceKey: sourceKey,
+                    id: id,
+                    songName: songName,
+                    artistName: artistName,
+                    lxQuality: lxQuality,
+                    quality: quality,
+                    ctx: ctx,
+                    handler: handler,
+                    sourceName: sourceName
+                )
+                if !result.url.isEmpty {
+                    return result
+                }
+            } catch {
+                #if DEBUG
+                print("[JSSource] [\(sourceName)] \(sourceKey) musicUrl 错误: \(error.localizedDescription)")
+                #endif
+                continue
+            }
+        }
+
+        // 所有源都失败
+        return UnblockResult(url: "", quality: quality, platform: sourceName)
+    }
+
+    /// 洛雪格式：对单个 sourceKey 发起请求
+    private func matchLxFormatSingle(
+        sourceKey: String,
+        id: Int,
+        songName: String,
+        artistName: String,
+        lxQuality: String,
+        quality: String,
+        ctx: JSContext,
+        handler: JSValue,
+        sourceName: String
+    ) async throws -> UnblockResult {
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 var resolvedUrl: String?
@@ -370,7 +412,7 @@ public class JSScriptSource: NCMUnblockSource {
                                     hash: '\(id)',
                                     name: '\(songName)',
                                     singer: '\(artistName)',
-                                    source: 'wy'
+                                    source: '\(sourceKey)'
                                 }
                             }
                         });
@@ -407,7 +449,7 @@ public class JSScriptSource: NCMUnblockSource {
                 }
 
                 let url = resolvedUrl ?? ""
-                continuation.resume(returning: UnblockResult(url: url, quality: quality, platform: sourceName))
+                continuation.resume(returning: UnblockResult(url: url, quality: quality, platform: "\(sourceName)(\(sourceKey))"))
             }
         }
     }
