@@ -96,10 +96,21 @@
       section.cover.show { padding: 80px 20px 60px; }
     }
     body .markdown-section > :first-child { margin-top: 0 !important; }
+    /* 代码复制按钮 */
+    .docsify-copy-code-button { background: var(--accent) !important; color: #fff !important; border-radius: 6px !important; font-size: 0.8rem !important; padding: 4px 10px !important; }
+    .docsify-copy-code-button:hover { background: var(--accent-dark) !important; }
+    /* 分页导航 */
+    .docsify-pagination-container { border-top: 1px solid var(--border) !important; margin-top: 3rem; padding-top: 1.5rem; }
+    .pagination-item-label { color: var(--text-secondary) !important; font-size: 0.85rem; }
+    .pagination-item-title { color: var(--accent) !important; font-weight: 600; }
+    /* 回到顶部按钮 */
+    .back-to-top { position: fixed; bottom: 32px; right: 32px; width: 40px; height: 40px; background: var(--accent); color: #fff; border: none; border-radius: 50%; cursor: pointer; font-size: 18px; display: none; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 999; transition: all 0.2s ease; }
+    .back-to-top:hover { background: var(--accent-dark); transform: translateY(-2px); }
   </style>
 </head>
 <body>
   <div id="app">加载中...</div>
+  <button class="back-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="回到顶部">↑</button>
 </body>
 <script>
   window.$docsify = {
@@ -115,14 +126,49 @@
     },
     themeColor: '#22C55E',
     auto2top: true,
+    copyCode: {
+      buttonText: '复制',
+      errorText: '失败',
+      successText: '已复制',
+    },
+    pagination: {
+      previousText: '上一节',
+      nextText: '下一节',
+      crossChapter: true,
+      crossChapterText: true,
+    },
   }
 </script>
 <script src="https://unpkg.com/docsify@4.13.1/lib/docsify.min.js"></script>
 <script src="https://unpkg.com/docsify@4.13.1/lib/plugins/search.min.js"></script>
+<script src="https://unpkg.com/docsify-copy-code@2.1.1/dist/docsify-copy-code.min.js"></script>
+<script src="https://unpkg.com/docsify-pagination@2.10.0/dist/docsify-pagination.min.js"></script>
 <script src="https://unpkg.com/prismjs@1.29.0/components/prism-swift.min.js"></script>
 <script src="https://unpkg.com/prismjs@1.29.0/components/prism-bash.min.js"></script>
+<script src="https://unpkg.com/prismjs@1.29.0/components/prism-json.min.js"></script>
+<script src="https://unpkg.com/prismjs@1.29.0/components/prism-xml-doc.min.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() { if (window.lucide) lucide.createIcons(); });
-  window.$docsify.plugins = [function(hook) { hook.doneEach(function() { if (window.lucide) lucide.createIcons(); }); }];
+  window.$docsify.plugins = [function(hook) {
+    hook.doneEach(function() {
+      if (window.lucide) lucide.createIcons();
+    });
+  }];
+  // 回到顶部按钮显示/隐藏
+  var mainContent = document.querySelector('.content') || document.querySelector('main') || window;
+  window.addEventListener('scroll', function() {
+    var btn = document.querySelector('.back-to-top');
+    if (btn) btn.style.display = window.scrollY > 400 ? 'flex' : 'none';
+  }, true);
+  // 监听 docsify 内容区域滚动
+  new MutationObserver(function() {
+    var section = document.querySelector('section.content');
+    if (section) {
+      section.addEventListener('scroll', function() {
+        var btn = document.querySelector('.back-to-top');
+        if (btn) btn.style.display = section.scrollTop > 400 ? 'flex' : 'none';
+      });
+    }
+  }).observe(document.body, { childList: true, subtree: true });
 </script>
 </html>

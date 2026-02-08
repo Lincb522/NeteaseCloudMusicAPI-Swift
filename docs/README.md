@@ -2912,23 +2912,215 @@ let result = try await client.plCount(...)
 
 ## 第三方解灰
 
-### UNM 解灰
+> 第三方解灰模块用于获取灰色（无版权）歌曲的可用播放链接。SDK 提供了基于协议的多音源架构，支持 UNM、HTTP API、洛雪音乐助手等多种第三方音源，并可自定义扩展。
 
-说明：需要自部署 [UnblockNeteaseMusic](https://github.com/UnblockNeteaseMusic/server) 服务
+### 架构概览
 
-**方法签名：**
-
-```swift
-func songUrlMatch(id: Int, source: String = "kuwo", serverUrl: String = "http://localhost:8080") async throws -> APIResponse
+```
+┌──────────────────────────────────────────────┐
+│              UnblockManager                   │
+│         (多音源管理器，按优先级降级)             │
+├──────────┬──────────┬────────────────────────┤
+│ UNMSource│HTTPAPISource│ LxMusicSource        │
+│ (UNM 服务)│(GD Studio等)│(洛雪音乐助手)        │
+├──────────┴──────────┴────────────────────────┤
+│           NCMUnblockSource 协议               │
+│    (自定义音源只需实现此协议即可接入)             │
+└──────────────────────────────────────────────┘
 ```
 
-**参数：**
+### NCMUnblockSource 协议
+
+所有音源都需要实现 `NCMUnblockSource` 协议：
+
+```swift
+public protocol NCMUnblockSource {
+    /// 音源名称
+    var name: String { get }
+    /// 支持的平台列表
+    var platforms: [String] { get }
+    /// 匹配歌曲
+    func match(id: Int, title: String?, artist: String?, album: String?, quality: String) async throws -> UnblockResult
+}
+```
+
+**UnblockResult 结构：**
+
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| url | String | 歌曲播放 URL |
+| quality | String | 实际音质 |
+| platform | String | 来源平台 |
+| extra | [String: Any] | 额外信息 |
+
+### UnblockManager 管理器
+
+`UnblockManager` 管理多个音源，支持按优先级自动降级匹配。
+
+```swift
+let manager = UnblockManager()
+
+// 注册音源（按优先级排序，靠前的优先使用）
+manager.register(UNMSource(serverUrl: "http://localhost:8080"))
+manager.register(HTTPAPISource(serverUrl: "https://music-api.gdstudio.xyz/api.php"))
+manager.register(LxMusicSource(serverUrl: "http://localhost:9763"))
+
+// 按优先级匹配（第一个成功即返回）
+let result = await manager.match(id: 347230, quality: "320")
+print(result?.url ?? "未匹配到")
+
+// 尝试所有音源，返回全部结果
+let allResults = await manager.matchAll(id: 347230)
+for item in allResults {
+    switch item.result {
+    case .success(let r): print("\(item.source): \(r.url)")
+    case .failure(let e): print("\(item.source): 失败 - \(e)")
+    }
+}
+```
+
+**管理器方法：**
+
+| 方法 | 说明 |
+|------|------|
+| `register(_:)` | 注册单个音源 |
+| `register(_:)` | 批量注册音源数组 |
+| `remove(named:)` | 移除指定名称的音源 |
+| `removeAll()` | 移除所有音源 |
+| `match(...)` | 按优先级匹配，返回第一个成功结果 |
+| `matchAll(...)` | 尝试所有音源，返回全部结果 |
+
+### 内置音源
+
+#### UNMSource — UNM 音源
+
+需要自行部署 [UnblockNeteaseMusic](https://github.com/UnblockNeteaseMusic/server) 服务。
+
+```swift
+let source = UNMSource(
+    serverUrl: "http://localhost:8080",
+    platforms: ["qq", "kuwo", "kugou", "migu"]  // 可选，默认全部
+)
+```
+
+| 参数 | 类型 | 必选 | 说明 |
+|------|------|------|------|
+| serverUrl | String | ✅ | UNM 服务地址 |
+| platforms | [String] | ❌ | 搜索平台，默认 `["qq", "kuwo", "kugou", "migu"]` |
+
+请求格式：`{serverUrl}/match?id={id}&source={platforms}`
+
+#### HTTPAPISource — 通用 HTTP API 音源
+
+兼容 GD Studio 等标准 HTTP 接口格式。
+
+```swift
+let source = HTTPAPISource(
+    name: "GDStudio",
+    serverUrl: "https://music-api.gdstudio.xyz/api.php",
+    supportedQualities: ["128", "192", "320", "740", "999"]
+)
+```
+
+| 参数 | 类型 | 必选 | 说明 |
+|------|------|------|------|
+| name | String | ❌ | 音源名称，默认 `"HTTPAPISource"` |
+| serverUrl | String | ✅ | API 基础地址 |
+| platforms | [String] | ❌ | 平台列表 |
+| supportedQualities | [String] | ❌ | 支持的音质，默认 `["128", "192", "320", "740", "999"]` |
+
+请求格式：`{serverUrl}?types=url&id={id}&br={quality}`
+
+#### LxMusicSource — 洛雪音乐助手音源
+
+支持导入洛雪格式的自定义音源脚本配置。
+
+```swift
+let source = LxMusicSource(
+    name: "LxMusic",
+    serverUrl: "http://localhost:9763",
+    platforms: ["wy", "kw", "kg", "tx", "mg"],
+    defaultPlatform: "wy"
+)
+```
+
+| 参数 | 类型 | 必选 | 说明 |
+|------|------|------|------|
+| name | String | ❌ | 音源名称，默认 `"LxMusic"` |
+| serverUrl | String | ✅ | 洛雪音源 API 地址 |
+| platforms | [String] | ❌ | 平台列表，默认 `["wy", "kw", "kg", "tx", "mg"]` |
+| defaultPlatform | String | ❌ | 默认搜索平台，默认 `"wy"` |
+
+请求格式：`{serverUrl}/url/{platform}/{songId}/{quality}`
+
+音质映射：`128` → `128k`、`320` → `320k`、`flac`/`740` → `flac`、`999` → `flac24bit`
+
+### 自定义音源
+
+实现 `NCMUnblockSource` 协议即可接入任意第三方音源：
+
+```swift
+struct MyCustomSource: NCMUnblockSource {
+    let name = "MySource"
+    let platforms = ["custom"]
+
+    func match(id: Int, title: String?, artist: String?, album: String?, quality: String) async throws -> UnblockResult {
+        // 自定义匹配逻辑
+        let url = "https://my-api.example.com/song/\(id)"
+        let (data, _) = try await URLSession.shared.data(from: URL(string: url)!)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+        return UnblockResult(
+            url: json["url"] as? String ?? "",
+            quality: quality,
+            platform: "custom"
+        )
+    }
+}
+
+// 注册使用
+let manager = UnblockManager()
+manager.register(MyCustomSource())
+```
+
+### NCMClient 集成
+
+#### songUrlUnblock — 使用管理器匹配
+
+```swift
+func songUrlUnblock(manager: UnblockManager, id: Int, title: String?, artist: String?, album: String?, quality: String) async throws -> APIResponse
+```
+
+| 参数 | 类型 | 必选 | 说明 |
+|------|------|------|------|
+| manager | UnblockManager | ✅ | 解灰管理器实例 |
+| id | Int | ✅ | 歌曲 ID |
+| title | String? | ❌ | 歌曲名（辅助匹配） |
+| artist | String? | ❌ | 歌手名（辅助匹配） |
+| album | String? | ❌ | 专辑名（辅助匹配） |
+| quality | String | ❌ | 期望音质，默认 `"320"` |
+
+**调用例子：**
+
+```swift
+let manager = UnblockManager()
+manager.register(UNMSource(serverUrl: "http://localhost:8080"))
+manager.register(HTTPAPISource(serverUrl: "https://music-api.gdstudio.xyz/api.php"))
+
+let result = try await client.songUrlUnblock(manager: manager, id: 347230, quality: "320")
+print(result.body)
+```
+
+#### songUrlMatch — UNM 兼容接口
+
+```swift
+func songUrlMatch(id: Int, source: String?, serverUrl: String) async throws -> APIResponse
+```
 
 | 参数 | 类型 | 必选 | 说明 |
 |------|------|------|------|
 | id | Int | ✅ | 歌曲 ID |
-| source | String | ❌ | 音源，默认 `"kuwo"`（可选 `"qq"`、`"kugou"` 等） |
-| serverUrl | String | ❌ | UNM 服务地址 |
+| source | String? | ❌ | 音源（如 `"qq"`、`"kuwo"` 等） |
+| serverUrl | String | ✅ | UNM 服务地址 |
 
 **调用例子：**
 
@@ -2936,23 +3128,17 @@ func songUrlMatch(id: Int, source: String = "kuwo", serverUrl: String = "http://
 let result = try await client.songUrlMatch(id: 347230, source: "qq", serverUrl: "http://localhost:8080")
 ```
 
-### GD Studio 解灰
-
-说明：支持替换第三方源
-
-**方法签名：**
+#### songUrlNcmget — GD Studio 兼容接口
 
 ```swift
-func songUrlNcmget(id: Int, br: String = "320", serverUrl: String = "https://gdstudio.cnc.wiki/api.php") async throws -> APIResponse
+func songUrlNcmget(id: Int, br: String, serverUrl: String) async throws -> APIResponse
 ```
-
-**参数：**
 
 | 参数 | 类型 | 必选 | 说明 |
 |------|------|------|------|
 | id | Int | ✅ | 歌曲 ID |
-| br | String | ❌ | 码率，默认 `"320"` |
-| serverUrl | String | ❌ | 第三方源地址，支持替换 |
+| br | String | ❌ | 码率，默认 `"320"`，可选 `"128"` `"192"` `"320"` `"740"` `"999"` |
+| serverUrl | String | ❌ | 第三方源地址，默认 GD Studio |
 
 **调用例子：**
 
@@ -3015,6 +3201,7 @@ let result = try await client.songUrlNcmget(id: 347230, serverUrl: "https://my-m
 | `NCMClient+Search.swift` | 8 | 搜索、热搜 |
 | `NCMClient+Ranking.swift` | 8 | 排行榜 |
 | `NCMClient+Cloud.swift` | 6 | 云盘上传 |
+| `NCMClient+Unblock.swift` | 3 | 第三方解灰（多音源协议） |
 | `NCMClient+Misc.swift` | 119 | 其他全部接口 |
 
 ---
