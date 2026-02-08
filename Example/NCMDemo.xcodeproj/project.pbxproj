@@ -7,29 +7,21 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0761658EC0DE4D82E281DD5E /* DJRadioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34635F18BCF7697E0612ECCA /* DJRadioView.swift */; };
-		1773A88B78C94996E83B6118 /* ToplistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 625D3CE0713B29BC17F2EA50 /* ToplistView.swift */; };
-		4295C2A9604D53827D78986D /* NCMDemoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6478068A73A68B64A72672E4 /* NCMDemoApp.swift */; };
-		55867F23D3667549FA9E8D5D /* DemoViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A09DE4B860827D364C936E1 /* DemoViewModel.swift */; };
-		9D6EF62BEC7C956AABC837F1 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 099A60682B7F7D9D214CB495 /* SearchView.swift */; };
-		D6B6E6B83457887C9516211E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02A5163BB3951D63C0ED4F23 /* SettingsView.swift */; };
-		E046A96D10B8EB3FA88C6828 /* PlaylistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A25FAD0E056C615CD0DD3C3B /* PlaylistView.swift */; };
 		F29179F88230002E2185264E /* NeteaseCloudMusicAPI in Frameworks */ = {isa = PBXBuildFile; productRef = 4D33BE4E8783B3340A9A192A /* NeteaseCloudMusicAPI */; };
-		F2982720ECA0C654D7FF0502 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 084517D6289E4C0E97072985 /* ContentView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		02A5163BB3951D63C0ED4F23 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		084517D6289E4C0E97072985 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		099A60682B7F7D9D214CB495 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
-		2A09DE4B860827D364C936E1 /* DemoViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoViewModel.swift; sourceTree = "<group>"; };
 		2D5545793B7A420CF89DF1EF /* NCMDemo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = NCMDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		34635F18BCF7697E0612ECCA /* DJRadioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DJRadioView.swift; sourceTree = "<group>"; };
-		625D3CE0713B29BC17F2EA50 /* ToplistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToplistView.swift; sourceTree = "<group>"; };
-		6478068A73A68B64A72672E4 /* NCMDemoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NCMDemoApp.swift; sourceTree = "<group>"; };
-		A25FAD0E056C615CD0DD3C3B /* PlaylistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistView.swift; sourceTree = "<group>"; };
 		E83C8751DB27E7ADE0FB672B /* NeteaseCloudMusicAPI-Swift */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "NeteaseCloudMusicAPI-Swift"; path = ..; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		C37E2DAC788FA331150EBD0F /* Sources */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Sources;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		54246DD2F51E9AFA8092EC9A /* Frameworks */ = {
@@ -68,21 +60,6 @@
 			name = Packages;
 			sourceTree = "<group>";
 		};
-		C37E2DAC788FA331150EBD0F /* Sources */ = {
-			isa = PBXGroup;
-			children = (
-				084517D6289E4C0E97072985 /* ContentView.swift */,
-				2A09DE4B860827D364C936E1 /* DemoViewModel.swift */,
-				34635F18BCF7697E0612ECCA /* DJRadioView.swift */,
-				6478068A73A68B64A72672E4 /* NCMDemoApp.swift */,
-				A25FAD0E056C615CD0DD3C3B /* PlaylistView.swift */,
-				099A60682B7F7D9D214CB495 /* SearchView.swift */,
-				02A5163BB3951D63C0ED4F23 /* SettingsView.swift */,
-				625D3CE0713B29BC17F2EA50 /* ToplistView.swift */,
-			);
-			path = Sources;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -96,6 +73,9 @@
 			buildRules = (
 			);
 			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				C37E2DAC788FA331150EBD0F /* Sources */,
 			);
 			name = NCMDemo;
 			packageProductDependencies = (
@@ -112,7 +92,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1500;
+				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					4CF16D3672018919842F314E = {
 						DevelopmentTeam = "";
@@ -121,7 +101,7 @@
 				};
 			};
 			buildConfigurationList = EE32E81126258A8D4744FB95 /* Build configuration list for PBXProject "NCMDemo" */;
-			compatibilityVersion = "Xcode 14.0";
+			compatibilityVersion = "Xcode 16.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -147,14 +127,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F2982720ECA0C654D7FF0502 /* ContentView.swift in Sources */,
-				0761658EC0DE4D82E281DD5E /* DJRadioView.swift in Sources */,
-				55867F23D3667549FA9E8D5D /* DemoViewModel.swift in Sources */,
-				4295C2A9604D53827D78986D /* NCMDemoApp.swift in Sources */,
-				E046A96D10B8EB3FA88C6828 /* PlaylistView.swift in Sources */,
-				9D6EF62BEC7C956AABC837F1 /* SearchView.swift in Sources */,
-				D6B6E6B83457887C9516211E /* SettingsView.swift in Sources */,
-				1773A88B78C94996E83B6118 /* ToplistView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
