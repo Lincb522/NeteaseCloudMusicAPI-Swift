@@ -2480,7 +2480,7 @@ let result = try await client.cloudLyricGet(uid: 32953014, sid: 347230)
 
 ## 其他
 
-本分类包含 119 个接口，涵盖 Banner、一起听、听歌足迹、音乐人、粉丝中心、曲风、UGC 百科、声音/播客、广播电台、动态、话题、Mlog、乐谱、首页、第三方解灰等。
+本分类包含 119 个接口，涵盖 Banner、一起听、听歌足迹、音乐人、粉丝中心、曲风、UGC 百科、声音/播客、广播电台、动态、话题、Mlog、乐谱、首页等。
 
 ### Banner
 
@@ -2912,7 +2912,7 @@ let result = try await client.plCount(...)
 
 ## 第三方解灰
 
-> 第三方解灰模块用于获取灰色（无版权）歌曲的可用播放链接。SDK 提供了基于协议的多音源架构，支持 UNM、HTTP API、洛雪音乐助手等多种第三方音源，并可自定义扩展。
+> 第三方解灰模块用于获取灰色（无版权）歌曲的可用播放链接。SDK 提供了基于协议的多音源架构，支持导入 JS 音源脚本文件和自定义 HTTP 地址两种方式，并可自定义扩展。
 
 ### 架构概览
 
@@ -2920,10 +2920,10 @@ let result = try await client.plCount(...)
 ┌──────────────────────────────────────────────┐
 │              UnblockManager                   │
 │         (多音源管理器，按优先级降级)             │
-├──────────┬──────────┬────────────────────────┤
-│ UNMSource│HTTPAPISource│ LxMusicSource        │
-│ (UNM 服务)│(GD Studio等)│(洛雪音乐助手)        │
-├──────────┴──────────┴────────────────────────┤
+├─────────────────┬────────────────────────────┤
+│  JSScriptSource  │    CustomURLSource         │
+│ (导入 JS 脚本文件) │  (自定义 HTTP 地址)        │
+├─────────────────┴────────────────────────────┤
 │           NCMUnblockSource 协议               │
 │    (自定义音源只需实现此协议即可接入)             │
 └──────────────────────────────────────────────┘
@@ -2937,12 +2937,19 @@ let result = try await client.plCount(...)
 public protocol NCMUnblockSource {
     /// 音源名称
     var name: String { get }
-    /// 支持的平台列表
-    var platforms: [String] { get }
-    /// 匹配歌曲
-    func match(id: Int, title: String?, artist: String?, album: String?, quality: String) async throws -> UnblockResult
+    /// 音源类型标识
+    var sourceType: UnblockSourceType { get }
+    /// 匹配歌曲，返回可用播放链接
+    func match(id: Int, title: String?, artist: String?, quality: String) async throws -> UnblockResult
 }
 ```
+
+**UnblockSourceType 枚举：**
+
+| 值 | 说明 |
+|------|------|
+| `.jsScript` | JS 脚本音源 |
+| `.httpUrl` | 自定义 HTTP 地址音源 |
 
 **UnblockResult 结构：**
 
@@ -2950,7 +2957,7 @@ public protocol NCMUnblockSource {
 |------|------|------|
 | url | String | 歌曲播放 URL |
 | quality | String | 实际音质 |
-| platform | String | 来源平台 |
+| platform | String | 来源平台/音源名称 |
 | extra | [String: Any] | 额外信息 |
 
 ### UnblockManager 管理器
@@ -2960,10 +2967,13 @@ public protocol NCMUnblockSource {
 ```swift
 let manager = UnblockManager()
 
-// 注册音源（按优先级排序，靠前的优先使用）
-manager.register(UNMSource(serverUrl: "http://localhost:8080"))
-manager.register(HTTPAPISource(serverUrl: "https://music-api.gdstudio.xyz/api.php"))
-manager.register(LxMusicSource(serverUrl: "http://localhost:9763"))
+// 注册 JS 脚本音源
+let jsSource = JSScriptSource(name: "我的音源", script: jsScriptContent)
+manager.register(jsSource)
+
+// 注册自定义地址音源
+let urlSource = CustomURLSource(name: "自定义API", baseURL: "https://my-api.example.com/api.php")
+manager.register(urlSource)
 
 // 按优先级匹配（第一个成功即返回）
 let result = await manager.match(id: 347230, quality: "320")
@@ -2992,68 +3002,67 @@ for item in allResults {
 
 ### 内置音源
 
-#### UNMSource — UNM 音源
+#### JSScriptSource — JS 脚本音源
 
-需要自行部署 [UnblockNeteaseMusic](https://github.com/UnblockNeteaseMusic/server) 服务。
+支持导入洛雪音乐助手格式的 JS 音源脚本文件。使用 `JavaScriptCore` 执行脚本。
+
+JS 脚本需导出以下函数：
+- `getUrl(songId, quality)` — 返回 `{ url: "...", quality: "..." }` 对象或 URL 字符串
+- `getMusicInfo()`（可选）— 返回 `{ name: "音源名" }` 用于自动获取音源名称
 
 ```swift
-let source = UNMSource(
-    serverUrl: "http://localhost:8080",
-    platforms: ["qq", "kuwo", "kugou", "migu"]  // 可选，默认全部
+// 从脚本内容初始化
+let source = JSScriptSource(name: "我的音源", script: """
+    function getUrl(songId, quality) {
+        var resp = httpGet("https://my-api.example.com/song/" + songId + "?q=" + quality);
+        var data = JSON.parse(resp);
+        return { url: data.url, quality: quality };
+    }
+    function getMusicInfo() {
+        return { name: "我的音源" };
+    }
+""")
+
+// 从文件初始化
+let source = try JSScriptSource(name: "洛雪音源", fileURL: fileURL)
+```
+
+| 参数 | 类型 | 必选 | 说明 |
+|------|------|------|------|
+| name | String | ❌ | 音源名称，默认 `"JS音源"`（若脚本有 `getMusicInfo` 则自动获取） |
+| script | String | ✅ | JS 脚本内容 |
+
+> JS 脚本中可使用 `httpGet(url)` 发起同步 HTTP GET 请求，以及 `console.log()` 输出调试日志。
+
+#### CustomURLSource — 自定义 HTTP 地址音源
+
+支持自定义 HTTP API 地址，自动适配多种返回格式。
+
+```swift
+// 使用默认请求格式
+let source = CustomURLSource(
+    name: "自定义API",
+    baseURL: "https://my-api.example.com/api.php"
+)
+// 默认请求: {baseURL}?types=url&id={id}&br={quality}
+
+// 使用自定义 URL 模板
+let source = CustomURLSource(
+    name: "自定义API",
+    baseURL: "https://my-api.example.com",
+    urlTemplate: "{baseURL}/song/{id}?quality={quality}"
 )
 ```
 
 | 参数 | 类型 | 必选 | 说明 |
 |------|------|------|------|
-| serverUrl | String | ✅ | UNM 服务地址 |
-| platforms | [String] | ❌ | 搜索平台，默认 `["qq", "kuwo", "kugou", "migu"]` |
+| name | String | ❌ | 音源名称，默认 `"自定义音源"` |
+| baseURL | String | ✅ | API 基础地址 |
+| urlTemplate | String? | ❌ | URL 模板，支持 `{id}`、`{quality}`、`{br}`、`{baseURL}` 占位符 |
 
-请求格式：`{serverUrl}/match?id={id}&source={platforms}`
-
-#### HTTPAPISource — 通用 HTTP API 音源
-
-兼容 GD Studio 等标准 HTTP 接口格式。
-
-```swift
-let source = HTTPAPISource(
-    name: "GDStudio",
-    serverUrl: "https://music-api.gdstudio.xyz/api.php",
-    supportedQualities: ["128", "192", "320", "740", "999"]
-)
-```
-
-| 参数 | 类型 | 必选 | 说明 |
-|------|------|------|------|
-| name | String | ❌ | 音源名称，默认 `"HTTPAPISource"` |
-| serverUrl | String | ✅ | API 基础地址 |
-| platforms | [String] | ❌ | 平台列表 |
-| supportedQualities | [String] | ❌ | 支持的音质，默认 `["128", "192", "320", "740", "999"]` |
-
-请求格式：`{serverUrl}?types=url&id={id}&br={quality}`
-
-#### LxMusicSource — 洛雪音乐助手音源
-
-支持导入洛雪格式的自定义音源脚本配置。
-
-```swift
-let source = LxMusicSource(
-    name: "LxMusic",
-    serverUrl: "http://localhost:9763",
-    platforms: ["wy", "kw", "kg", "tx", "mg"],
-    defaultPlatform: "wy"
-)
-```
-
-| 参数 | 类型 | 必选 | 说明 |
-|------|------|------|------|
-| name | String | ❌ | 音源名称，默认 `"LxMusic"` |
-| serverUrl | String | ✅ | 洛雪音源 API 地址 |
-| platforms | [String] | ❌ | 平台列表，默认 `["wy", "kw", "kg", "tx", "mg"]` |
-| defaultPlatform | String | ❌ | 默认搜索平台，默认 `"wy"` |
-
-请求格式：`{serverUrl}/url/{platform}/{songId}/{quality}`
-
-音质映射：`128` → `128k`、`320` → `320k`、`flac`/`740` → `flac`、`999` → `flac24bit`
+**返回值兼容格式：**
+- JSON 对象：`{ "url": "..." }` 或 `{ "data": "..." }` 或 `{ "data": { "url": "..." } }`
+- 纯文本：直接返回以 `http` 开头的 URL 字符串
 
 ### 自定义音源
 
@@ -3062,9 +3071,9 @@ let source = LxMusicSource(
 ```swift
 struct MyCustomSource: NCMUnblockSource {
     let name = "MySource"
-    let platforms = ["custom"]
+    let sourceType: UnblockSourceType = .httpUrl
 
-    func match(id: Int, title: String?, artist: String?, album: String?, quality: String) async throws -> UnblockResult {
+    func match(id: Int, title: String?, artist: String?, quality: String) async throws -> UnblockResult {
         // 自定义匹配逻辑
         let url = "https://my-api.example.com/song/\(id)"
         let (data, _) = try await URLSession.shared.data(from: URL(string: url)!)
@@ -3087,7 +3096,7 @@ manager.register(MyCustomSource())
 #### songUrlUnblock — 使用管理器匹配
 
 ```swift
-func songUrlUnblock(manager: UnblockManager, id: Int, title: String?, artist: String?, album: String?, quality: String) async throws -> APIResponse
+func songUrlUnblock(manager: UnblockManager, id: Int, title: String?, artist: String?, quality: String) async throws -> APIResponse
 ```
 
 | 参数 | 类型 | 必选 | 说明 |
@@ -3096,58 +3105,24 @@ func songUrlUnblock(manager: UnblockManager, id: Int, title: String?, artist: St
 | id | Int | ✅ | 歌曲 ID |
 | title | String? | ❌ | 歌曲名（辅助匹配） |
 | artist | String? | ❌ | 歌手名（辅助匹配） |
-| album | String? | ❌ | 专辑名（辅助匹配） |
 | quality | String | ❌ | 期望音质，默认 `"320"` |
 
 **调用例子：**
 
 ```swift
 let manager = UnblockManager()
-manager.register(UNMSource(serverUrl: "http://localhost:8080"))
-manager.register(HTTPAPISource(serverUrl: "https://music-api.gdstudio.xyz/api.php"))
 
+// 导入 JS 音源
+let jsSource = JSScriptSource(name: "洛雪音源", script: jsContent)
+manager.register(jsSource)
+
+// 添加自定义地址音源
+let urlSource = CustomURLSource(name: "备用API", baseURL: "https://my-api.example.com/api.php")
+manager.register(urlSource)
+
+// 使用 NCMClient 解灰
 let result = try await client.songUrlUnblock(manager: manager, id: 347230, quality: "320")
 print(result.body)
-```
-
-#### songUrlMatch — UNM 兼容接口
-
-```swift
-func songUrlMatch(id: Int, source: String?, serverUrl: String) async throws -> APIResponse
-```
-
-| 参数 | 类型 | 必选 | 说明 |
-|------|------|------|------|
-| id | Int | ✅ | 歌曲 ID |
-| source | String? | ❌ | 音源（如 `"qq"`、`"kuwo"` 等） |
-| serverUrl | String | ✅ | UNM 服务地址 |
-
-**调用例子：**
-
-```swift
-let result = try await client.songUrlMatch(id: 347230, source: "qq", serverUrl: "http://localhost:8080")
-```
-
-#### songUrlNcmget — GD Studio 兼容接口
-
-```swift
-func songUrlNcmget(id: Int, br: String, serverUrl: String) async throws -> APIResponse
-```
-
-| 参数 | 类型 | 必选 | 说明 |
-|------|------|------|------|
-| id | Int | ✅ | 歌曲 ID |
-| br | String | ❌ | 码率，默认 `"320"`，可选 `"128"` `"192"` `"320"` `"740"` `"999"` |
-| serverUrl | String | ❌ | 第三方源地址，默认 GD Studio |
-
-**调用例子：**
-
-```swift
-// 使用默认源
-let result = try await client.songUrlNcmget(id: 347230)
-
-// 使用自定义源
-let result = try await client.songUrlNcmget(id: 347230, serverUrl: "https://my-music-api.example.com/api.php")
 ```
 
 ---
@@ -3201,7 +3176,7 @@ let result = try await client.songUrlNcmget(id: 347230, serverUrl: "https://my-m
 | `NCMClient+Search.swift` | 8 | 搜索、热搜 |
 | `NCMClient+Ranking.swift` | 8 | 排行榜 |
 | `NCMClient+Cloud.swift` | 6 | 云盘上传 |
-| `NCMClient+Unblock.swift` | 3 | 第三方解灰（多音源协议） |
+| `NCMClient+Unblock.swift` | 1 | 第三方解灰（JS 脚本 + 自定义地址） |
 | `NCMClient+Misc.swift` | 119 | 其他全部接口 |
 
 ---

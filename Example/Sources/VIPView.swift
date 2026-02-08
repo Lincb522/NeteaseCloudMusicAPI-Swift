@@ -18,8 +18,10 @@ struct VIPView: View {
                 .disabled(vm.isLoading)
 
                 if !vm.vipInfoText.isEmpty {
-                    Text(vm.vipInfoText)
-                        .font(.caption).foregroundColor(.secondary)
+                    ForEach(vm.vipInfoText.components(separatedBy: "\n"), id: \.self) { line in
+                        Text(line)
+                            .font(.caption).foregroundColor(.secondary)
+                    }
                 }
             }
 
@@ -48,10 +50,24 @@ struct VIPView: View {
                 .disabled(vm.isLoading)
 
                 ForEach(Array(vm.vipTaskList.enumerated()), id: \.offset) { _, task in
-                    let name = task["taskName"] as? String ?? task["name"] as? String ?? "未知"
-                    let desc = task["taskDesc"] as? String ?? task["description"] as? String ?? ""
+                    let name = task["taskName"] as? String
+                        ?? task["name"] as? String
+                        ?? task["action"] as? String
+                        ?? "未知"
+                    let desc = task["taskDesc"] as? String
+                        ?? task["description"] as? String
+                        ?? ""
+                    let status = task["status"] as? Int
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(name).font(.subheadline)
+                        HStack {
+                            Text(name).font(.subheadline)
+                            Spacer()
+                            if let s = status {
+                                Text(s == 0 ? "未完成" : "已完成")
+                                    .font(.caption2)
+                                    .foregroundColor(s == 0 ? .orange : .green)
+                            }
+                        }
                         if !desc.isEmpty {
                             Text(desc).font(.caption).foregroundColor(.secondary)
                         }

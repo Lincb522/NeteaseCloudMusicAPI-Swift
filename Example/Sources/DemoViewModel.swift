@@ -149,12 +149,18 @@ class DemoViewModel: ObservableObject {
 
     // MARK: - 解灰
 
-    @Published var unmEnabled: Bool = false
-    @Published var unmServerUrl: String = "http://localhost:5000"
-    @Published var httpApiEnabled: Bool = false
-    @Published var httpApiServerUrl: String = "https://music-api.gdstudio.xyz/api.php"
-    @Published var lxMusicEnabled: Bool = false
-    @Published var lxMusicServerUrl: String = "http://localhost:9763"
+    /// 音源配置项（用于 UI 管理）
+    struct SourceItem: Identifiable {
+        let id = UUID()
+        var name: String
+        var type: UnblockSourceType
+        var url: String          // 自定义地址音源的 URL
+        var script: String       // JS 脚本内容
+        var urlTemplate: String? // 自定义 URL 模板
+        var enabled: Bool = true
+    }
+
+    @Published var unblockSources: [SourceItem] = []
     @Published var unblockQuality: String = "320"
     @Published var unblockSongId: String = "347230"
     @Published var unblockSongName: String = ""
@@ -165,10 +171,9 @@ class DemoViewModel: ObservableObject {
     @Published var isUnblockLoading: Bool = false
     @Published var isUnblockAllLoading: Bool = false
     @Published var unblockAllResults: [UnblockTestItem] = []
-    @Published var matchResult: String = ""
-    @Published var ncmgetResult: String = ""
-    @Published var isMatchLoading: Bool = false
-    @Published var isNcmgetLoading: Bool = false
+    @Published var showJSFilePicker: Bool = false
+    @Published var showAddURLSource: Bool = false
+    @Published var jsScriptInput: String = ""
     private var unblockPlayer: AVPlayer?
 
     /// 解灰全部音源对比测试结果项
@@ -181,11 +186,7 @@ class DemoViewModel: ObservableObject {
 
     /// 当前启用的音源数量
     var enabledSourceCount: Int {
-        var count = 0
-        if unmEnabled { count += 1 }
-        if httpApiEnabled { count += 1 }
-        if lxMusicEnabled { count += 1 }
-        return count
+        unblockSources.filter { $0.enabled }.count
     }
 
     // MARK: - 通用状态
@@ -673,50 +674,86 @@ class DemoViewModel: ObservableObject {
 
     // MARK: - 解灰测试
 
-    /// 构建解灰管理器（根据当前启用的音源）
+    /// 导入 JS 脚本（从文本）
+    func importJSFromText() {
+        let script = jsScriptInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !script.isEmpty else { return }
+        let source = JSScriptSource(name: "JS音源", script: script)
+        unblockSources.append(SourceItem(
+            name: source.name,
+            type: .jsScript,
+            url: "",
+            script: script
+        ))
+        jsScriptInput = ""
+        print("[NCMDemo] 📦 导入 JS 音源: \(source.name)")
+    }
+
+    /// 导入 JS 脚本（从文件）
+    func importJSFromFile(url: URL) {
+        guard url.startAccessingSecurityScopedResource() else { return }
+        defer { url.stopAccessingSecurityScopedResource() }
+        do {
+            let script = try String(contentsOf: url, encoding: .utf8)
+            let source = JSScriptSource(name: url.deletingPathExtension().lastPathComponent, script: script)
+            unblockSources.append(SourceItem(
+                name: source.name,
+                type: .jsScript,
+                url: "",
+                script: script
+            ))
+            print("[NCMDemo] 📦 导入 JS 文件: \(source.name) (\(url.lastPathComponent))")
+        } catch {
+            print("[NCMDemo] ❌ 读取 JS 文件失败: \(error)")
+        }
+    }
+
+    /// 添加自定义地址音源
+    func addURLSource(name: String, url: String, template: String?) {
+        unblockSources.append(SourceItem(
+            name: name,
+            type: .httpUrl,
+            url: url,
+            script: "",
+            urlTemplate: template
+        ))
+        print("[NCMDemo] 📦 添加自定义音源: \(name) -> \(url)")
+    }
+
+    /// 构建解灰管理器
     private func buildUnblockManager() -> UnblockManager {
         let manager = UnblockManager()
-        if unmEnabled {
-            let url = unmServerUrl.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !url.isEmpty {
-                manager.register(UNMSource(serverUrl: url))
-                print("[NCMDemo] 📦 注册 UNM 音源: \(url)")
-            }
-        }
-        if httpApiEnabled {
-            let url = httpApiServerUrl.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !url.isEmpty {
-                manager.register(HTTPAPISource(name: "HTTPAPISource", serverUrl: url))
-                print("[NCMDemo] 📦 注册 HTTP API 音源: \(url)")
-            }
-        }
-        if lxMusicEnabled {
-            let url = lxMusicServerUrl.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !url.isEmpty {
-                manager.register(LxMusicSource(name: "LxMusic", serverUrl: url))
-                print("[NCMDemo] 📦 注册洛雪音源: \(url)")
+        for item in unblockSources where item.enabled {
+            switch item.type {
+            case .jsScript:
+                let source = JSScriptSource(name: item.name, script: item.script)
+                manager.register(source)
+                print("[NCMDemo] 📦 注册 JS 音源: \(item.name)")
+            case .httpUrl:
+                let source = CustomURLSource(name: item.name, baseURL: item.url, urlTemplate: item.urlTemplate)
+                manager.register(source)
+                print("[NCMDemo] 📦 注册自定义音源: \(item.name) -> \(item.url)")
             }
         }
         return manager
     }
 
-    /// 获取歌曲名称（用于解灰测试显示）
-    private func fetchSongName(id: Int) async -> (name: String?, artist: String?, album: String?) {
+    /// 获取歌曲名称
+    private func fetchSongName(id: Int) async -> (name: String?, artist: String?) {
         do {
             let resp = try await client.songDetail(ids: [id])
             if let songs = resp.body["songs"] as? [[String: Any]], let song = songs.first {
                 let name = song["name"] as? String
                 let artist = DemoViewModel.artistNames(from: song)
-                let album = DemoViewModel.albumName(from: song)
-                return (name, artist, album)
+                return (name, artist)
             }
         } catch {
             print("[NCMDemo] ⚠️ 获取歌曲详情失败: \(error)")
         }
-        return (nil, nil, nil)
+        return (nil, nil)
     }
 
-    /// 单曲解灰测试（使用 UnblockManager 优先级匹配）
+    /// 单曲解灰测试
     func testUnblockSingle() async {
         guard let songId = Int(unblockSongId) else {
             unblockError = "请输入有效的歌曲 ID"
@@ -729,7 +766,6 @@ class DemoViewModel: ObservableObject {
         unblockPlayStatus = ""
         print("[NCMDemo] ➡️ 解灰测试: id=\(songId) 音质=\(unblockQuality)")
 
-        // 获取歌曲信息
         let info = await fetchSongName(id: songId)
         if let name = info.name {
             unblockSongName = "\(name) - \(info.artist ?? "未知")"
@@ -742,7 +778,6 @@ class DemoViewModel: ObservableObject {
             id: songId,
             title: info.name,
             artist: info.artist,
-            album: info.album,
             quality: unblockQuality
         )
         let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
@@ -750,10 +785,9 @@ class DemoViewModel: ObservableObject {
         if let result = result, !result.url.isEmpty {
             unblockResult = result
             print("[NCMDemo] ✅ 解灰成功 [\(ms)ms] 来源=\(result.platform) 音质=\(result.quality)")
-            print("[NCMDemo]    URL: \(result.url)")
         } else {
             unblockError = "所有音源均未匹配到结果 (\(ms)ms)"
-            print("[NCMDemo] ❌ 解灰失败 [\(ms)ms] 所有音源无结果")
+            print("[NCMDemo] ❌ 解灰失败 [\(ms)ms]")
         }
         isUnblockLoading = false
     }
@@ -766,7 +800,7 @@ class DemoViewModel: ObservableObject {
         }
         isUnblockAllLoading = true
         unblockAllResults = []
-        print("[NCMDemo] ➡️ 全部音源对比测试: id=\(songId)")
+        print("[NCMDemo] ➡️ 全部音源对比: id=\(songId)")
 
         let info = await fetchSongName(id: songId)
         if let name = info.name {
@@ -778,43 +812,24 @@ class DemoViewModel: ObservableObject {
             id: songId,
             title: info.name,
             artist: info.artist,
-            album: info.album,
             quality: unblockQuality
         )
 
         var items: [UnblockTestItem] = []
         for r in allResults {
-            let start = CFAbsoluteTimeGetCurrent()
             switch r.result {
             case .success(let res):
-                let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
                 if res.url.isEmpty {
-                    items.append(UnblockTestItem(
-                        sourceName: r.source,
-                        success: false,
-                        detail: "返回空 URL",
-                        duration: "\(ms)ms"
-                    ))
+                    items.append(UnblockTestItem(sourceName: r.source, success: false, detail: "返回空 URL", duration: ""))
                 } else {
-                    items.append(UnblockTestItem(
-                        sourceName: r.source,
-                        success: true,
-                        detail: "音质: \(res.quality) | \(res.url.prefix(60))...",
-                        duration: "\(ms)ms"
-                    ))
+                    items.append(UnblockTestItem(sourceName: r.source, success: true, detail: "音质: \(res.quality) | \(res.url.prefix(60))...", duration: ""))
                 }
             case .failure(let error):
-                let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
-                items.append(UnblockTestItem(
-                    sourceName: r.source,
-                    success: false,
-                    detail: error.localizedDescription,
-                    duration: "\(ms)ms"
-                ))
+                items.append(UnblockTestItem(sourceName: r.source, success: false, detail: error.localizedDescription, duration: ""))
             }
         }
         unblockAllResults = items
-        print("[NCMDemo] ✅ 对比测试完成: \(items.filter { $0.success }.count)/\(items.count) 成功")
+        print("[NCMDemo] ✅ 对比完成: \(items.filter { $0.success }.count)/\(items.count) 成功")
         isUnblockAllLoading = false
     }
 
@@ -851,60 +866,6 @@ class DemoViewModel: ObservableObject {
         isUnblockPlaying = false
         unblockPlayStatus = "已停止"
         print("[NCMDemo] ⏹ 停止解灰播放")
-    }
-
-    /// 兼容接口测试 - songUrlMatch
-    func testSongUrlMatch() async {
-        guard let songId = Int(unblockSongId) else { return }
-        let url = unmServerUrl.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !url.isEmpty else {
-            matchResult = "请先填写 UNM 服务地址"
-            return
-        }
-        isMatchLoading = true
-        matchResult = ""
-        let start = CFAbsoluteTimeGetCurrent()
-        print("[NCMDemo] ➡️ songUrlMatch: id=\(songId) server=\(url)")
-
-        do {
-            let resp = try await client.songUrlMatch(id: songId, serverUrl: url)
-            let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
-            let matchUrl = resp.body["url"] as? String ?? "无"
-            let source = resp.body["source"] as? String ?? "未知"
-            matchResult = "[\(ms)ms] 来源: \(source) | URL: \(matchUrl.prefix(80))"
-            print("[NCMDemo] ✅ songUrlMatch [\(ms)ms] source=\(source)")
-        } catch {
-            let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
-            matchResult = "[\(ms)ms] 失败: \(error.localizedDescription)"
-            print("[NCMDemo] ❌ songUrlMatch [\(ms)ms] \(error)")
-        }
-        isMatchLoading = false
-    }
-
-    /// 兼容接口测试 - songUrlNcmget
-    func testSongUrlNcmget() async {
-        guard let songId = Int(unblockSongId) else { return }
-        isNcmgetLoading = true
-        ncmgetResult = ""
-        let start = CFAbsoluteTimeGetCurrent()
-        print("[NCMDemo] ➡️ songUrlNcmget: id=\(songId) br=\(unblockQuality)")
-
-        do {
-            let resp = try await client.songUrlNcmget(id: songId, br: unblockQuality)
-            let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
-            if let data = resp.body["data"] as? [String: Any] {
-                let resultUrl = data["url"] as? String ?? "无"
-                ncmgetResult = "[\(ms)ms] URL: \(resultUrl.prefix(80))"
-                print("[NCMDemo] ✅ songUrlNcmget [\(ms)ms]")
-            } else {
-                ncmgetResult = "[\(ms)ms] 无数据"
-            }
-        } catch {
-            let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
-            ncmgetResult = "[\(ms)ms] 失败: \(error.localizedDescription)"
-            print("[NCMDemo] ❌ songUrlNcmget [\(ms)ms] \(error)")
-        }
-        isNcmgetLoading = false
     }
 
     // MARK: - 专辑
@@ -1379,13 +1340,36 @@ class DemoViewModel: ObservableObject {
         isLoading = true
         do {
             let resp = try await client.vipInfo()
-            if let data = resp.body["data"] as? [String: Any] {
-                let isVip = data["redVipLevel"] as? Int ?? 0
-                let expireTime = data["redVipExpireTime"] as? Int ?? 0
-                vipInfoText = "VIP 等级: \(isVip) | 到期: \(DemoViewModel.formatTimestamp(expireTime))"
-                print("[NCMDemo] ✅ VIP 信息")
+            print("[NCMDemo] VIP 原始响应: \(resp.body)")
+            let code = resp.body["code"] as? Int ?? 0
+            if code != 200 {
+                vipInfoText = "请求失败 code=\(code)，请确认已登录"
+            } else if let data = resp.body["data"] as? [String: Any] {
+                // 尝试多种字段名
+                let vipLevel = data["redVipLevel"] as? Int
+                    ?? data["vipLevel"] as? Int
+                    ?? data["level"] as? Int ?? 0
+                let expireTime = data["redVipExpireTime"] as? Int
+                    ?? data["expireTime"] as? Int ?? 0
+                let dynamicIconUrl = data["dynamicIconUrl"] as? String ?? ""
+                let associator = data["associator"] as? [String: Any]
+                let musicPackage = data["musicPackage"] as? [String: Any]
+
+                var parts: [String] = []
+                parts.append("VIP 等级: \(vipLevel)")
+                if expireTime > 0 {
+                    parts.append("到期: \(DemoViewModel.formatTimestamp(expireTime))")
+                }
+                if let assoc = associator, let aExpire = assoc["expireTime"] as? Int, aExpire > 0 {
+                    parts.append("黑胶到期: \(DemoViewModel.formatTimestamp(aExpire))")
+                }
+                if let mp = musicPackage, let mpExpire = mp["expireTime"] as? Int, mpExpire > 0 {
+                    parts.append("音乐包到期: \(DemoViewModel.formatTimestamp(mpExpire))")
+                }
+                vipInfoText = parts.joined(separator: "\n")
+                print("[NCMDemo] ✅ VIP 信息: \(vipInfoText)")
             } else {
-                vipInfoText = "未获取到 VIP 信息"
+                vipInfoText = "未获取到 VIP 信息（可能未登录）"
             }
         } catch {
             vipInfoText = "获取 VIP 信息失败: \(error.localizedDescription)"
@@ -1398,10 +1382,27 @@ class DemoViewModel: ObservableObject {
         isLoading = true
         do {
             let resp = try await client.vipGrowthpoint()
-            if let data = resp.body["data"] as? [String: Any] {
-                let point = data["growthPoint"] as? Int ?? 0
-                vipGrowthText = "当前成长值: \(point)"
+            print("[NCMDemo] 成长值原始响应 keys: \(resp.body.keys)")
+            let code = resp.body["code"] as? Int ?? 0
+            if code != 200 {
+                vipGrowthText = "请求失败 code=\(code)，请确认已登录"
+            } else if let data = resp.body["data"] as? [String: Any] {
+                // 成长值在 data.userLevel.growthPoint
+                let userLevel = data["userLevel"] as? [String: Any]
+                let point = userLevel?["growthPoint"] as? Int
+                    ?? data["growthPoint"] as? Int
+                    ?? data["currentGrowthPoint"] as? Int ?? 0
+                let level = userLevel?["level"] as? Int ?? data["level"] as? Int ?? 0
+                let levelName = userLevel?["levelName"] as? String ?? ""
+                let maxLevel = userLevel?["maxLevel"] as? Bool ?? false
+                var text = "成长值: \(point)"
+                if !levelName.isEmpty { text += " | \(levelName)" }
+                else if level > 0 { text += " | Lv.\(level)" }
+                if maxLevel { text += " (满级)" }
+                vipGrowthText = text
                 print("[NCMDemo] ✅ 成长值: \(point)")
+            } else {
+                vipGrowthText = "未获取到成长值数据"
             }
         } catch {
             vipGrowthText = "获取成长值失败: \(error.localizedDescription)"
@@ -1414,12 +1415,41 @@ class DemoViewModel: ObservableObject {
         isLoading = true
         do {
             let resp = try await client.vipTasks()
-            if let data = resp.body["data"] as? [String: Any],
-               let tasks = data["taskList"] as? [[String: Any]] {
-                vipTaskList = tasks
-                print("[NCMDemo] ✅ VIP 任务 \(tasks.count)")
+            print("[NCMDemo] VIP 任务原始响应 keys: \(resp.body.keys)")
+            let code = resp.body["code"] as? Int ?? 0
+            if code != 200 {
+                errorMessage = "请求失败 code=\(code)，请确认已登录"
+            } else if let data = resp.body["data"] as? [String: Any] {
+                // taskList 是分组数组，每组有 taskItems 子数组，需要展平
+                if let groups = data["taskList"] as? [[String: Any]] {
+                    var allTasks: [[String: Any]] = []
+                    for group in groups {
+                        if let items = group["taskItems"] as? [[String: Any]] {
+                            allTasks.append(contentsOf: items)
+                        } else {
+                            // 分组本身没有 taskItems，当作单个任务
+                            allTasks.append(group)
+                        }
+                    }
+                    vipTaskList = allTasks
+                } else if let tasks = data["list"] as? [[String: Any]] {
+                    vipTaskList = tasks
+                } else if let tasks = data["tasks"] as? [[String: Any]] {
+                    vipTaskList = tasks
+                } else {
+                    for (_, value) in data {
+                        if let arr = value as? [[String: Any]], !arr.isEmpty {
+                            vipTaskList = arr
+                            break
+                        }
+                    }
+                }
+                print("[NCMDemo] ✅ VIP 任务 \(vipTaskList.count)")
             } else if let data = resp.body["data"] as? [[String: Any]] {
                 vipTaskList = data
+                print("[NCMDemo] ✅ VIP 任务 \(data.count)")
+            } else {
+                errorMessage = "未获取到 VIP 任务数据"
             }
         } catch {
             errorMessage = "获取 VIP 任务失败: \(error.localizedDescription)"
@@ -1432,9 +1462,17 @@ class DemoViewModel: ObservableObject {
         isLoading = true
         do {
             let resp = try await client.yunbei()
-            let point = resp.body["point"] as? Int ?? 0
-            yunbeiInfoText = "云贝余额: \(point)"
-            print("[NCMDemo] ✅ 云贝: \(point)")
+            print("[NCMDemo] 云贝原始响应: \(resp.body)")
+            let code = resp.body["code"] as? Int ?? 0
+            if code != 200 {
+                yunbeiInfoText = "请求失败 code=\(code)，请确认已登录"
+            } else {
+                let point = resp.body["point"] as? Int ?? 0
+                let data = resp.body["data"] as? [String: Any]
+                let balance = data?["balance"] as? Int ?? point
+                yunbeiInfoText = "云贝余额: \(balance > 0 ? balance : point)"
+                print("[NCMDemo] ✅ 云贝: \(balance > 0 ? balance : point)")
+            }
         } catch {
             yunbeiInfoText = "获取云贝失败: \(error.localizedDescription)"
             print("[NCMDemo] ❌ 云贝失败: \(error)")
@@ -1446,9 +1484,23 @@ class DemoViewModel: ObservableObject {
         isLoading = true
         do {
             let resp = try await client.yunbeiTasks()
-            if let data = resp.body["data"] as? [[String: Any]] {
+            print("[NCMDemo] 云贝任务原始响应 keys: \(resp.body.keys)")
+            let code = resp.body["code"] as? Int ?? 0
+            if code != 200 {
+                errorMessage = "请求失败 code=\(code)，请确认已登录"
+            } else if let data = resp.body["data"] as? [[String: Any]] {
                 yunbeiTaskList = data
                 print("[NCMDemo] ✅ 云贝任务 \(data.count)")
+            } else if let data = resp.body["data"] as? [String: Any] {
+                // 可能嵌套在 data.list 或 data.tasks 中
+                if let list = data["list"] as? [[String: Any]] {
+                    yunbeiTaskList = list
+                } else if let tasks = data["tasks"] as? [[String: Any]] {
+                    yunbeiTaskList = tasks
+                }
+                print("[NCMDemo] ✅ 云贝任务 \(yunbeiTaskList.count)")
+            } else {
+                errorMessage = "未获取到云贝任务数据"
             }
         } catch {
             errorMessage = "获取云贝任务失败: \(error.localizedDescription)"
