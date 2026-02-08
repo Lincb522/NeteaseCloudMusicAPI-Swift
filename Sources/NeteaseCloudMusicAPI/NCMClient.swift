@@ -19,6 +19,15 @@ public class NCMClient {
     /// 设置后所有请求走后端代理模式，不再由客户端加密直连网易云
     public var serverUrl: String?
 
+    /// 解灰管理器（可选）
+    /// 设置后可通过 `autoUnblock` 开关自动解灰
+    public var unblockManager: UnblockManager?
+
+    /// 是否启用自动解灰
+    /// 开启后，songUrl / songUrlV1 获取到不可用链接时自动尝试第三方音源匹配
+    /// 需要先设置 `unblockManager` 并注册音源
+    public var autoUnblock: Bool = false
+
     /// 网易云音乐主域名（WeAPI / LinuxAPI 使用）
     public var domain: String {
         get { requestClient.domain }

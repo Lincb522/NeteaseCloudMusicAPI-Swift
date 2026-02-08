@@ -698,4 +698,103 @@ extension NCMClient {
             cookies: []
         )
     }
+
+    // MARK: - 自动解灰
+
+    /// 判断歌曲数据项是否需要解灰
+    /// 检查 songUrl / songUrlV1 返回的 data 数组中的单个元素
+    /// - Parameter item: 歌曲 URL 数据项
+    /// - Returns: true 表示该歌曲不可用，需要解灰
+    internal func needsUnblock(_ item: [String: Any]) -> Bool {
+        // 无 URL 或 URL 为空
+        let url = item["url"] as? String ?? ""
+        if url.isEmpty { return true }
+        // 有试听限制（freeTrialInfo 不为 null/nil）
+        if item["freeTrialInfo"] != nil && !(item["freeTrialInfo"] is NSNull) { return true }
+        // fee 为 1（VIP 歌曲）或 4（付费专辑），且 URL 为空
+        if let fee = item["fee"] as? Int, [1, 4].contains(fee) && url.isEmpty { return true }
+        return false
+    }
+
+    /// 对 songUrl / songUrlV1 的响应执行自动解灰
+    /// 遍历 data 数组，对不可用的歌曲逐个尝试第三方音源匹配，替换 URL
+    /// - Parameters:
+    ///   - response: 原始 API 响应
+    ///   - ids: 请求的歌曲 ID 数组
+    ///   - quality: 目标音质（如 "320"、"flac"）
+    /// - Returns: 处理后的响应（不可用歌曲的 URL 被替换为第三方音源链接）
+    internal func autoUnblockResponse(
+        _ response: APIResponse,
+        ids: [Int],
+        quality: String
+    ) async -> APIResponse {
+        guard let manager = unblockManager else { return response }
+        guard var dataArray = response.body["data"] as? [[String: Any]] else { return response }
+
+        // 筛选需要解灰的歌曲 ID
+        let needUnblockIds = dataArray.compactMap { item -> Int? in
+            guard needsUnblock(item) else { return nil }
+            return item["id"] as? Int
+        }
+        guard !needUnblockIds.isEmpty else { return response }
+
+        #if DEBUG
+        print("[NCM] 🔓 自动解灰: \(needUnblockIds.count)/\(dataArray.count) 首需要解灰")
+        #endif
+
+        // 批量获取歌曲详情（歌名、歌手传给音源提高匹配率）
+        var songInfoMap: [Int: (name: String, artist: String)] = [:]
+        if let detailResp = try? await songDetail(ids: needUnblockIds),
+           let songs = detailResp.body["songs"] as? [[String: Any]] {
+            for song in songs {
+                guard let id = song["id"] as? Int else { continue }
+                let name = song["name"] as? String ?? ""
+                let artists = (song["ar"] as? [[String: Any]] ?? song["artists"] as? [[String: Any]] ?? [])
+                    .compactMap { $0["name"] as? String }
+                    .joined(separator: " / ")
+                songInfoMap[id] = (name, artists)
+            }
+        }
+
+        // 逐首尝试解灰
+        var modified = false
+        for i in 0..<dataArray.count {
+            guard needsUnblock(dataArray[i]) else { continue }
+            guard let songId = dataArray[i]["id"] as? Int else { continue }
+
+            let info = songInfoMap[songId]
+
+            #if DEBUG
+            print("[NCM] 🔓 解灰: id=\(songId) \(info?.name ?? "") - \(info?.artist ?? "")")
+            #endif
+
+            if let result = await manager.match(
+                id: songId,
+                title: info?.name,
+                artist: info?.artist,
+                quality: quality
+            ), !result.url.isEmpty {
+                dataArray[i]["url"] = result.url
+                dataArray[i]["freeTrialInfo"] = NSNull()
+                dataArray[i]["_unblocked"] = true
+                dataArray[i]["_unblockedFrom"] = result.platform
+                modified = true
+
+                #if DEBUG
+                print("[NCM] ✅ 解灰成功: id=\(songId) 来源=\(result.platform)")
+                #endif
+            } else {
+                #if DEBUG
+                print("[NCM] ❌ 解灰失败: id=\(songId) 所有音源均未匹配")
+                #endif
+            }
+        }
+
+        if modified {
+            var newBody = response.body
+            newBody["data"] = dataArray
+            return APIResponse(status: response.status, body: newBody, cookies: response.cookies)
+        }
+        return response
+    }
 }

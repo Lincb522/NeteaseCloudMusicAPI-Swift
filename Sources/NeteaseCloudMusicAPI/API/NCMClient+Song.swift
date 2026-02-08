@@ -28,16 +28,23 @@ extension NCMClient {
     ///   - ids: 歌曲 ID 数组
     ///   - br: 码率，默认 999000
     /// - Returns: API 响应，包含歌曲播放链接
+    /// - Note: 启用 `autoUnblock` 后，不可用的歌曲会自动尝试第三方音源匹配
     public func songUrl(ids: [Int], br: Int = 999000) async throws -> APIResponse {
         let data: [String: Any] = [
             "ids": String(data: try JSONSerialization.data(
                 withJSONObject: ids.map { String($0) }), encoding: .utf8)!,
             "br": br,
         ]
-        return try await request(
+        let response = try await request(
             "/api/song/enhance/player/url",
             data: data
         )
+
+        // 自动解灰
+        guard autoUnblock, let manager = unblockManager, !manager.sources.isEmpty else {
+            return response
+        }
+        return await autoUnblockResponse(response, ids: ids, quality: "\(br / 1000)")
     }
 
     /// 获取歌曲播放链接（v1 版本，使用音质等级）
@@ -45,6 +52,7 @@ extension NCMClient {
     ///   - ids: 歌曲 ID 数组
     ///   - level: 音质等级，默认 `.exhigh`
     /// - Returns: API 响应，包含歌曲播放链接
+    /// - Note: 启用 `autoUnblock` 后，不可用的歌曲会自动尝试第三方音源匹配
     public func songUrlV1(ids: [Int], level: SoundQualityType = .exhigh) async throws -> APIResponse {
         var data: [String: Any] = [
             "ids": "[" + ids.map { String($0) }.joined(separator: ",") + "]",
@@ -55,10 +63,27 @@ extension NCMClient {
         if level == .sky {
             data["immerseType"] = "c51"
         }
-        return try await request(
+        let response = try await request(
             "/api/song/enhance/player/url/v1",
             data: data
         )
+
+        // 自动解灰：将音质等级映射为码率字符串
+        guard autoUnblock, let manager = unblockManager, !manager.sources.isEmpty else {
+            return response
+        }
+        let quality: String
+        switch level {
+        case .standard: quality = "128"
+        case .higher: quality = "192"
+        case .exhigh: quality = "320"
+        case .lossless: quality = "flac"
+        case .hires: quality = "999"
+        case .jyeffect: quality = "999"
+        case .sky: quality = "999"
+        case .jymaster: quality = "999"
+        }
+        return await autoUnblockResponse(response, ids: ids, quality: quality)
     }
 
     /// 获取歌曲下载链接
