@@ -90,18 +90,20 @@ extension NCMClient {
     /// - Parameters:
     ///   - uid: 用户 ID
     ///   - limit: 每页数量，默认 30
+    ///   - offset: 偏移量，默认 0
     ///   - lasttime: 上一页最后一条数据的时间戳，默认 -1
     /// - Returns: API 响应，包含粉丝用户列表
     public func userFolloweds(
         uid: Int,
         limit: Int = 30,
+        offset: Int = 0,
         lasttime: Int = -1
     ) async throws -> APIResponse {
         let data: [String: Any] = [
             "userId": uid,
             "time": "\(lasttime)",
             "limit": limit,
-            "offset": 0,
+            "offset": offset,
             "getcounts": "true",
         ]
         return try await request(
@@ -196,8 +198,7 @@ extension NCMClient {
         ]
         return try await request(
             "/api/user/profile/update",
-            data: data,
-            crypto: .weapi
+            data: data
         )
     }
 
@@ -239,11 +240,12 @@ extension NCMClient {
     ///   - limit: 每页数量，默认 10
     ///   - time: 分页时间戳，默认 0
     /// - Returns: API 响应
-    public func userCommentHistory(uid: Int, limit: Int = 10, time: Int = 0) async throws -> APIResponse {
+    public func userCommentHistory(uid: Int, limit: Int = 10, offset: Int = 0, time: Int = 0) async throws -> APIResponse {
         let data: [String: Any] = [
             "compose_reminder": "true",
             "compose_hot_comment": "true",
             "limit": limit,
+            "offset": offset,
             "user_id": uid,
             "time": time,
         ]
@@ -281,11 +283,12 @@ extension NCMClient {
     ///   - lasttime: 上一页最后一条动态的时间戳，默认 -1
     ///   - limit: 每页数量，默认 30
     /// - Returns: API 响应
-    public func userEvent(uid: Int, lasttime: Int = -1, limit: Int = 30) async throws -> APIResponse {
+    public func userEvent(uid: Int, lasttime: Int = -1, limit: Int = 30, offset: Int = 0) async throws -> APIResponse {
         let data: [String: Any] = [
             "getcounts": true,
             "time": lasttime,
             "limit": limit,
+            "offset": offset,
             "total": false,
         ]
         return try await request("/api/event/get/\(uid)", data: data)
@@ -330,8 +333,10 @@ extension NCMClient {
     ///   - phone: 新手机号
     ///   - captcha: 新手机验证码
     ///   - oldcaptcha: 旧手机验证码
-    ///   - countrycode: 国家码，默认 "86"
+    ///   - ctcode: 国家码，默认 "86"（兼容 rebind.js 的 ctcode 参数名）
+    ///   - countrycode: 国家码，默认 "86"（兼容 user_replacephone.js 的 countrycode 参数名）
     /// - Returns: API 响应
+    /// - Note: Node.js 源码中 rebind.js 使用 ctcode，user_replacephone.js 使用 countrycode，两者均有效
     public func userReplacephone(
         phone: String,
         captcha: String,
@@ -342,6 +347,7 @@ extension NCMClient {
             "phone": phone,
             "captcha": captcha,
             "oldcaptcha": oldcaptcha,
+            "ctcode": countrycode,
             "countrycode": countrycode,
         ]
         return try await request("/api/user/replaceCellphone", data: data, crypto: .weapi)

@@ -23,7 +23,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/v1/cloud/get",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -39,7 +40,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/v1/cloud/get/byids",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -52,37 +54,74 @@ extension NCMClient {
         ]
         return try await request(
             "/api/cloud/del",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
     /// 云盘歌曲匹配
     /// - Parameters:
+    ///   - uid: 用户 ID
     ///   - sid: 云盘歌曲 ID
     ///   - asid: 匹配目标歌曲 ID
     /// - Returns: API 响应
-    public func cloudMatch(sid: Int, asid: Int) async throws -> APIResponse {
+    public func cloudMatch(uid: Int, sid: Int, asid: Int) async throws -> APIResponse {
         let data: [String: Any] = [
-            "sid": sid,
-            "asid": asid,
+            "userId": uid,
+            "songId": sid,
+            "adjustSongId": asid,
         ]
         return try await request(
             "/api/cloud/user/song/match",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
-    /// 云盘歌曲导入
-    /// - Parameter songId: 歌曲 ID
+    /// 云盘歌曲导入（两步操作：先检查再导入）
+    /// - Parameters:
+    ///   - md5: 文件 MD5
+    ///   - songId: 歌曲 ID，默认 -2
+    ///   - bitrate: 码率
+    ///   - fileSize: 文件大小
+    ///   - song: 歌曲名
+    ///   - artist: 歌手名，默认 "未知"
+    ///   - album: 专辑名，默认 "未知"
+    ///   - fileType: 文件类型（如 "mp3"、"flac"）
     /// - Returns: API 响应
-    public func cloudImport(songId: Int) async throws -> APIResponse {
-        let data: [String: Any] = [
-            "songId": songId,
+    public func cloudImport(
+        md5: String,
+        songId: Int = -2,
+        bitrate: Int,
+        fileSize: Int,
+        song: String,
+        artist: String = "未知",
+        album: String = "未知",
+        fileType: String = "mp3"
+    ) async throws -> APIResponse {
+        // 第一步：检查文件
+        let checkData: [String: Any] = [
+            "uploadType": 0,
+            "songs": "[{\"md5\":\"\(md5)\",\"songId\":\(songId),\"bitrate\":\(bitrate),\"fileSize\":\(fileSize)}]",
         ]
-        return try await request(
-            "/api/cloud/importSong",
-            data: data
-        )
+        let checkRes = try await request("/api/cloud/upload/check/v2", data: checkData)
+
+        // 从检查结果中获取 songId
+        let resultSongId: Int
+        if let dataArr = checkRes.body["data"] as? [[String: Any]],
+           let first = dataArr.first,
+           let sid = first["songId"] as? Int {
+            resultSongId = sid
+        } else {
+            resultSongId = songId
+        }
+
+        // 第二步：导入歌曲
+        let importData: [String: Any] = [
+            "uploadType": 0,
+            "songs": "[{\"songId\":\(resultSongId),\"bitrate\":\(bitrate),\"song\":\"\(song)\",\"artist\":\"\(artist)\",\"album\":\"\(album)\",\"fileName\":\"\(song).\(fileType)\"}]",
+        ]
+        return try await request("/api/cloud/user/song/import", data: importData)
     }
 
     // MARK: - 以下为补充接口

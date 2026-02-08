@@ -159,7 +159,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/v1/artist/list",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -214,7 +215,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/artist/top/song",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -256,9 +258,10 @@ extension NCMClient {
     ///   - limit: 每页数量，默认 20
     ///   - before: 时间戳（可选）
     /// - Returns: API 响应
-    public func artistNewMv(limit: Int = 20, before: Int? = nil) async throws -> APIResponse {
+    public func artistNewMv(limit: Int = 20, offset: Int = 0, before: Int? = nil) async throws -> APIResponse {
         let data: [String: Any] = [
             "limit": limit,
+            "offset": offset,
             "startTimestamp": before ?? Int(Date().timeIntervalSince1970 * 1000),
         ]
         return try await request("/api/sub/artist/new/works/mv/list", data: data, crypto: .weapi)
@@ -269,9 +272,10 @@ extension NCMClient {
     ///   - limit: 每页数量，默认 20
     ///   - before: 时间戳（可选）
     /// - Returns: API 响应
-    public func artistNewSong(limit: Int = 20, before: Int? = nil) async throws -> APIResponse {
+    public func artistNewSong(limit: Int = 20, offset: Int = 0, before: Int? = nil) async throws -> APIResponse {
         let data: [String: Any] = [
             "limit": limit,
+            "offset": offset,
             "startTimestamp": before ?? Int(Date().timeIntervalSince1970 * 1000),
         ]
         return try await request("/api/sub/artist/new/works/song/list", data: data, crypto: .weapi)

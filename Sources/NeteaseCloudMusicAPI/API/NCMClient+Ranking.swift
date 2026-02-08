@@ -22,7 +22,8 @@ extension NCMClient {
     public func toplistDetail() async throws -> APIResponse {
         return try await request(
             "/api/toplist/detail",
-            data: [:]
+            data: [:],
+            crypto: .weapi
         )
     }
 
@@ -36,7 +37,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/v1/discovery/new/songs",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -62,11 +64,23 @@ extension NCMClient {
     }
 
     /// 歌手排行榜
-    /// - Parameter type: 歌手排行榜区域类型，默认 `.zh`（华语）
+    /// - Parameters:
+    ///   - type: 歌手排行榜区域类型，默认 `.zh`（华语）
+    ///   - limit: 每页数量，默认 100
+    ///   - offset: 偏移量，默认 0
+    ///   - total: 是否返回总数，默认 true
     /// - Returns: API 响应，包含歌手排行榜数据
-    public func toplistArtist(type: ToplistArtistType = .zh) async throws -> APIResponse {
+    public func toplistArtist(
+        type: ToplistArtistType = .zh,
+        limit: Int = 100,
+        offset: Int = 0,
+        total: Bool = true
+    ) async throws -> APIResponse {
         let data: [String: Any] = [
             "type": type.rawValue,
+            "limit": limit,
+            "offset": offset,
+            "total": total,
         ]
         return try await request(
             "/api/toplist/artist",
@@ -81,23 +95,35 @@ extension NCMClient {
     ///   - offset: 偏移量，默认 0
     ///   - area: 区域，默认 "ALL"
     ///   - type: 类型，默认 "new"
+    ///   - year: 年份（可选，不传则使用当前年份）
+    ///   - month: 月份（可选，不传则使用当前月份）
+    ///   - rcmd: 是否推荐，默认 true
     /// - Returns: API 响应，包含新碟列表
     public func topAlbum(
         limit: Int = 50,
         offset: Int = 0,
         area: String = "ALL",
-        type: String = "new"
+        type: String = "new",
+        year: Int? = nil,
+        month: Int? = nil,
+        rcmd: Bool = true
     ) async throws -> APIResponse {
+        let now = Date()
+        let calendar = Calendar.current
         let data: [String: Any] = [
             "limit": limit,
             "offset": offset,
             "area": area,
             "type": type,
-            "total": true,
+            "total": false,
+            "year": year ?? calendar.component(.year, from: now),
+            "month": month ?? calendar.component(.month, from: now),
+            "rcmd": rcmd,
         ]
         return try await request(
             "/api/discovery/new/albums/area",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -131,5 +157,17 @@ extension NCMClient {
     /// - Returns: API 响应
     public func toplistDetailV2() async throws -> APIResponse {
         return try await request("/api/toplist/detail/v2", data: [:], crypto: .weapi)
+    }
+
+    /// 排行榜歌单详情（通过 ID 获取）
+    /// - Parameter id: 排行榜歌单 ID
+    /// - Returns: API 响应，包含排行榜歌单详情（含 500 首歌曲）
+    public func topList(id: Int) async throws -> APIResponse {
+        let data: [String: Any] = [
+            "id": id,
+            "n": "500",
+            "s": "0",
+        ]
+        return try await request("/api/playlist/v4/detail", data: data)
     }
 }

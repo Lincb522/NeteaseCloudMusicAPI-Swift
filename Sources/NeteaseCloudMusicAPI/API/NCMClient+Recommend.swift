@@ -11,30 +11,34 @@ extension NCMClient {
     /// 个性化推荐歌单
     /// - Parameter limit: 数量限制，默认 30
     /// - Returns: API 响应，包含推荐歌单列表
-    public func personalized(limit: Int = 30) async throws -> APIResponse {
+    public func personalized(limit: Int = 30, offset: Int = 0) async throws -> APIResponse {
         let data: [String: Any] = [
             "limit": limit,
+            "offset": offset,
             "total": true,
             "n": 1000,
         ]
         return try await request(
             "/api/personalized/playlist",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
     /// 推荐新歌
     /// - Parameter limit: 数量限制，默认 10
     /// - Returns: API 响应，包含推荐新歌列表
-    public func personalizedNewsong(limit: Int = 10) async throws -> APIResponse {
+    public func personalizedNewsong(limit: Int = 10, offset: Int = 0) async throws -> APIResponse {
         let data: [String: Any] = [
             "type": "recommend",
             "limit": limit,
+            "offset": offset,
             "areaId": 0,
         ]
         return try await request(
             "/api/personalized/newsong",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -43,7 +47,8 @@ extension NCMClient {
     public func personalizedMv() async throws -> APIResponse {
         return try await request(
             "/api/personalized/mv",
-            data: [:]
+            data: [:],
+            crypto: .weapi
         )
     }
 
@@ -52,7 +57,8 @@ extension NCMClient {
     public func personalizedPrivatecontent() async throws -> APIResponse {
         return try await request(
             "/api/personalized/privatecontent",
-            data: [:]
+            data: [:],
+            crypto: .weapi
         )
     }
 
@@ -72,7 +78,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/v2/privatecontent/list",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -81,7 +88,8 @@ extension NCMClient {
     public func recommendSongs() async throws -> APIResponse {
         return try await request(
             "/api/v3/discovery/recommend/songs",
-            data: [:]
+            data: [:],
+            crypto: .weapi
         )
     }
 
@@ -90,7 +98,8 @@ extension NCMClient {
     public func recommendResource() async throws -> APIResponse {
         return try await request(
             "/api/v1/discovery/recommend/resource",
-            data: [:]
+            data: [:],
+            crypto: .weapi
         )
     }
 
@@ -99,7 +108,8 @@ extension NCMClient {
     public func personalFm() async throws -> APIResponse {
         return try await request(
             "/api/v1/radio/get",
-            data: [:]
+            data: [:],
+            crypto: .weapi
         )
     }
 

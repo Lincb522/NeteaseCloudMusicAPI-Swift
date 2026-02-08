@@ -17,7 +17,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/djradio/v2/get",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -42,7 +43,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/dj/program/byradio",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -55,7 +57,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/dj/program/detail",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -66,15 +69,18 @@ extension NCMClient {
     /// - Returns: API 响应，包含电台排行榜列表
     public func djToplist(
         limit: Int = 30,
-        offset: Int = 0
+        offset: Int = 0,
+        type: Int = 0
     ) async throws -> APIResponse {
         let data: [String: Any] = [
             "limit": limit,
             "offset": offset,
+            "type": type,
         ]
         return try await request(
             "/api/djradio/toplist",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -93,7 +99,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/program/toplist/v1",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -102,7 +109,8 @@ extension NCMClient {
     public func djCatelist() async throws -> APIResponse {
         return try await request(
             "/api/djradio/category/get",
-            data: [:]
+            data: [:],
+            crypto: .weapi
         )
     }
 
@@ -111,7 +119,8 @@ extension NCMClient {
     public func djRecommend() async throws -> APIResponse {
         return try await request(
             "/api/djradio/recommend/v1",
-            data: [:]
+            data: [:],
+            crypto: .weapi
         )
     }
 
@@ -124,7 +133,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/djradio/recommend",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -143,7 +153,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/djradio/\(actionStr)",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -163,7 +174,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/djradio/get/subed",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -182,7 +194,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/djradio/hot/v1",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -223,16 +236,16 @@ extension NCMClient {
     /// 获取电台个性推荐
     /// - Parameter limit: 数量限制，默认 6
     /// - Returns: API 响应
-    public func djPersonalizeRecommend(limit: Int = 6) async throws -> APIResponse {
-        let data: [String: Any] = ["limit": limit]
+    public func djPersonalizeRecommend(limit: Int = 6, offset: Int = 0) async throws -> APIResponse {
+        let data: [String: Any] = ["limit": limit, "offset": offset]
         return try await request("/api/djradio/personalize/rcmd", data: data, crypto: .weapi)
     }
 
     /// 获取电台 24 小时节目榜
     /// - Parameter limit: 数量限制，默认 100
     /// - Returns: API 响应
-    public func djProgramToplistHours(limit: Int = 100) async throws -> APIResponse {
-        let data: [String: Any] = ["limit": limit]
+    public func djProgramToplistHours(limit: Int = 100, offset: Int = 0) async throws -> APIResponse {
+        let data: [String: Any] = ["limit": limit, "offset": offset]
         return try await request("/api/djprogram/toplist/hours", data: data, crypto: .weapi)
     }
 
@@ -257,11 +270,12 @@ extension NCMClient {
     ///   - limit: 每页数量，默认 20
     ///   - time: 分页时间戳，默认 "-1"
     /// - Returns: API 响应
-    public func djSubscriber(id: Int, limit: Int = 20, time: String = "-1") async throws -> APIResponse {
+    public func djSubscriber(id: Int, limit: Int = 20, offset: Int = 0, time: String = "-1") async throws -> APIResponse {
         let data: [String: Any] = [
             "time": time,
             "id": id,
             "limit": limit,
+            "offset": offset,
             "total": "true",
         ]
         return try await request("/api/djradio/subscriber", data: data, crypto: .weapi)
@@ -278,8 +292,8 @@ extension NCMClient {
     /// 获取电台 24 小时主播榜
     /// - Parameter limit: 数量限制，默认 100
     /// - Returns: API 响应
-    public func djToplistHours(limit: Int = 100) async throws -> APIResponse {
-        let data: [String: Any] = ["limit": limit]
+    public func djToplistHours(limit: Int = 100, offset: Int = 0) async throws -> APIResponse {
+        let data: [String: Any] = ["limit": limit, "offset": offset]
         return try await request("/api/dj/toplist/hours", data: data, crypto: .weapi)
     }
 
@@ -299,16 +313,16 @@ extension NCMClient {
     /// 获取付费精品电台榜
     /// - Parameter limit: 数量限制，默认 100
     /// - Returns: API 响应
-    public func djToplistPay(limit: Int = 100) async throws -> APIResponse {
-        let data: [String: Any] = ["limit": limit]
+    public func djToplistPay(limit: Int = 100, offset: Int = 0) async throws -> APIResponse {
+        let data: [String: Any] = ["limit": limit, "offset": offset]
         return try await request("/api/djradio/toplist/pay", data: data, crypto: .weapi)
     }
 
     /// 获取电台最热主播榜
     /// - Parameter limit: 数量限制，默认 100
     /// - Returns: API 响应
-    public func djToplistPopular(limit: Int = 100) async throws -> APIResponse {
-        let data: [String: Any] = ["limit": limit]
+    public func djToplistPopular(limit: Int = 100, offset: Int = 0) async throws -> APIResponse {
+        let data: [String: Any] = ["limit": limit, "offset": offset]
         return try await request("/api/dj/toplist/popular", data: data, crypto: .weapi)
     }
 

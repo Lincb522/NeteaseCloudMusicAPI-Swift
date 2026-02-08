@@ -99,7 +99,8 @@ extension NCMClient {
         type: CommentType,
         id: Int,
         limit: Int = 20,
-        offset: Int = 0
+        offset: Int = 0,
+        beforeTime: Int = 0
     ) async throws -> APIResponse {
         let prefix = NCMClient.commentThreadPrefixes[type] ?? "R_SO_4_"
         let threadId = "\(prefix)\(id)"
@@ -107,6 +108,7 @@ extension NCMClient {
             "rid": threadId,
             "limit": limit,
             "offset": offset,
+            "beforeTime": beforeTime,
         ]
         return try await request(
             "/api/v1/resource/hotcomments/\(threadId)",
@@ -128,6 +130,7 @@ extension NCMClient {
         id: Int,
         parentCommentId: Int,
         limit: Int = 20,
+        offset: Int = 0,
         time: Int = -1
     ) async throws -> APIResponse {
         let prefix = NCMClient.commentThreadPrefixes[type] ?? "R_SO_4_"
@@ -137,10 +140,12 @@ extension NCMClient {
             "threadId": threadId,
             "time": time,
             "limit": limit,
+            "offset": offset,
         ]
         return try await request(
             "/api/resource/comment/floor/get",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -179,12 +184,14 @@ extension NCMClient {
     public func commentMusic(
         id: Int,
         limit: Int = 20,
-        offset: Int = 0
+        offset: Int = 0,
+        beforeTime: Int = 0
     ) async throws -> APIResponse {
         let data: [String: Any] = [
             "rid": id,
             "limit": limit,
             "offset": offset,
+            "beforeTime": beforeTime,
         ]
         return try await request(
             "/api/v1/resource/comments/R_SO_4_\(id)",
@@ -202,12 +209,14 @@ extension NCMClient {
     public func commentPlaylist(
         id: Int,
         limit: Int = 20,
-        offset: Int = 0
+        offset: Int = 0,
+        beforeTime: Int = 0
     ) async throws -> APIResponse {
         let data: [String: Any] = [
             "rid": id,
             "limit": limit,
             "offset": offset,
+            "beforeTime": beforeTime,
         ]
         return try await request(
             "/api/v1/resource/comments/A_PL_0_\(id)",
@@ -225,12 +234,14 @@ extension NCMClient {
     public func commentAlbum(
         id: Int,
         limit: Int = 20,
-        offset: Int = 0
+        offset: Int = 0,
+        beforeTime: Int = 0
     ) async throws -> APIResponse {
         let data: [String: Any] = [
             "rid": id,
             "limit": limit,
             "offset": offset,
+            "beforeTime": beforeTime,
         ]
         return try await request(
             "/api/v1/resource/comments/R_AL_3_\(id)",
@@ -248,12 +259,14 @@ extension NCMClient {
     public func commentMv(
         id: Int,
         limit: Int = 20,
-        offset: Int = 0
+        offset: Int = 0,
+        beforeTime: Int = 0
     ) async throws -> APIResponse {
         let data: [String: Any] = [
             "rid": id,
             "limit": limit,
             "offset": offset,
+            "beforeTime": beforeTime,
         ]
         return try await request(
             "/api/v1/resource/comments/R_MV_5_\(id)",

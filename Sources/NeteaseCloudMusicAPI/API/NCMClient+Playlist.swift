@@ -270,11 +270,13 @@ extension NCMClient {
     public func topPlaylistHighquality(
         cat: String = "全部",
         limit: Int = 50,
+        offset: Int = 0,
         lasttime: Int = 0
     ) async throws -> APIResponse {
         let data: [String: Any] = [
             "cat": cat,
             "limit": limit,
+            "offset": offset,
             "lasttime": lasttime,
             "total": true,
         ]
@@ -292,10 +294,11 @@ extension NCMClient {
     ///   - cat: 分类标签，默认 "全部"
     ///   - limit: 每页数量，默认 24
     /// - Returns: API 响应
-    public func playlistCategoryList(cat: String = "全部", limit: Int = 24) async throws -> APIResponse {
+    public func playlistCategoryList(cat: String = "全部", limit: Int = 24, offset: Int = 0) async throws -> APIResponse {
         let data: [String: Any] = [
             "cat": cat,
             "limit": limit,
+            "offset": offset,
             "newStyle": true,
         ]
         return try await request("/api/playlist/category/list", data: data)
@@ -367,10 +370,11 @@ extension NCMClient {
     ///   - time: 时间戳，默认 "-1"
     ///   - limit: 每页数量，默认 12
     /// - Returns: API 响应
-    public func playlistMylike(time: String = "-1", limit: Int = 12) async throws -> APIResponse {
+    public func playlistMylike(time: String = "-1", limit: Int = 12, offset: Int = 0) async throws -> APIResponse {
         let data: [String: Any] = [
             "time": time,
             "limit": limit,
+            "offset": offset,
         ]
         return try await request("/api/mlog/playlist/mylike/bytime/get", data: data, crypto: .weapi)
     }

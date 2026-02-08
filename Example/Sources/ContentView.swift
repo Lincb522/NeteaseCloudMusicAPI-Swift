@@ -14,11 +14,11 @@ struct ContentView: View {
             }
             .tabItem { Label("搜索", systemImage: "magnifyingglass") }
 
-            // 歌单广场
+            // 推荐
             NavigationStack {
-                PlaylistView(vm: vm)
+                RecommendView(vm: vm)
             }
-            .tabItem { Label("歌单", systemImage: "music.note.list") }
+            .tabItem { Label("推荐", systemImage: "star.fill") }
 
             // 排行榜
             NavigationStack {
@@ -26,11 +26,11 @@ struct ContentView: View {
             }
             .tabItem { Label("排行榜", systemImage: "chart.bar") }
 
-            // 电台
+            // 更多模块
             NavigationStack {
-                DJRadioView(vm: vm)
+                MoreView(vm: vm)
             }
-            .tabItem { Label("电台", systemImage: "radio") }
+            .tabItem { Label("更多", systemImage: "square.grid.2x2") }
 
             // 连接设置
             NavigationStack {

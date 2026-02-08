@@ -19,8 +19,22 @@ extension NCMClient {
         keywords: String,
         type: SearchType = .single,
         limit: Int = 30,
-        offset: Int = 0
+        offset: Int = 0,
+        scene: String = ""
     ) async throws -> APIResponse {
+        // type 为 2000 时使用语音搜索接口
+        if type.rawValue == 2000 {
+            let data: [String: Any] = [
+                "keyword": keywords,
+                "scene": scene,
+                "limit": limit,
+                "offset": offset,
+            ]
+            return try await request(
+                "/api/search/voice/get",
+                data: data
+            )
+        }
         let data: [String: Any] = [
             "s": keywords,
             "type": type.rawValue,
@@ -29,8 +43,7 @@ extension NCMClient {
         ]
         return try await request(
             "/api/search/get",
-            data: data,
-            crypto: .weapi
+            data: data
         )
     }
 
@@ -52,6 +65,7 @@ extension NCMClient {
             "type": type.rawValue,
             "limit": limit,
             "offset": offset,
+            "total": true,
         ]
         return try await request(
             "/api/cloudsearch/pc",
@@ -64,7 +78,8 @@ extension NCMClient {
     public func searchHotDetail() async throws -> APIResponse {
         return try await request(
             "/api/hotsearchlist/get",
-            data: [:]
+            data: [:],
+            crypto: .weapi
         )
     }
 
@@ -82,7 +97,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/search/suggest/\(type.rawValue)",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -105,7 +121,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/search/suggest/multimatch",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 

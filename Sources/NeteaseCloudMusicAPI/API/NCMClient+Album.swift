@@ -28,7 +28,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/album/detail/dynamic",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -47,7 +48,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/album/\(actionStr)",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -91,7 +93,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/album/new",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -114,7 +117,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/vipmall/albumproduct/detail",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -134,7 +138,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/digitalAlbum/purchased",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -197,15 +202,17 @@ extension NCMClient {
     ///   - type: 榜单类型（daily/week/year/total），默认 "daily"
     ///   - year: 年份（type 为 year 时需要）
     /// - Returns: API 响应
+    /// - Parameters:
+    ///   - albumType: 专辑类型（0 数字专辑，1 数字单曲），默认 0
+    ///   - type: 榜单类型（daily/week/year/total），默认 "daily"
+    ///   - year: 年份（type 为 year 时需要）
     public func albumSongsaleboard(
         albumType: Int = 0,
         type: String = "daily",
-        year: String? = nil
+        year: Int? = nil
     ) async throws -> APIResponse {
         var data: [String: Any] = ["albumType": albumType]
-        if type == "year", let year = year {
-            data["year"] = year
-        }
+        if let year = year { data["year"] = year }
         return try await request("/api/feealbum/songsaleboard/\(type)/type", data: data, crypto: .weapi)
     }
 

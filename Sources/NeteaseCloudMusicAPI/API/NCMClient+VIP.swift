@@ -9,20 +9,24 @@ import Foundation
 extension NCMClient {
 
     /// 获取 VIP 信息
+    /// - Parameter userId: 用户 ID，默认为空字符串（获取当前用户）
     /// - Returns: API 响应，包含 VIP 信息
-    public func vipInfo() async throws -> APIResponse {
+    public func vipInfo(userId: String = "") async throws -> APIResponse {
         return try await request(
             "/api/music-vip-membership/front/vip/info",
-            data: [:]
+            data: ["userId": userId],
+            crypto: .weapi
         )
     }
 
     /// 获取 VIP 信息（v2 版本）
+    /// - Parameter userId: 用户 ID，默认为空字符串（获取当前用户）
     /// - Returns: API 响应，包含 VIP 信息
-    public func vipInfoV2() async throws -> APIResponse {
+    public func vipInfoV2(userId: String = "") async throws -> APIResponse {
         return try await request(
             "/api/music-vip-membership/client/vip/info",
-            data: [:]
+            data: ["userId": userId],
+            crypto: .weapi
         )
     }
 
@@ -30,8 +34,9 @@ extension NCMClient {
     /// - Returns: API 响应
     public func vipSign() async throws -> APIResponse {
         return try await request(
-            "/api/vipnewactivity/clientsign",
-            data: [:]
+            "/api/vip-center-bff/task/sign",
+            data: [:],
+            crypto: .weapi
         )
     }
 
@@ -39,8 +44,9 @@ extension NCMClient {
     /// - Returns: API 响应，包含云贝余额等信息
     public func yunbeiInfo() async throws -> APIResponse {
         return try await request(
-            "/api/point/signed/get",
-            data: [:]
+            "/api/v1/user/info",
+            data: [:],
+            crypto: .weapi
         )
     }
 
@@ -48,8 +54,9 @@ extension NCMClient {
     /// - Returns: API 响应
     public func yunbeiSign() async throws -> APIResponse {
         return try await request(
-            "/api/point/dailyTask",
-            data: ["type": "0"]
+            "/api/pointmall/user/sign",
+            data: [:],
+            crypto: .weapi
         )
     }
 
@@ -58,7 +65,8 @@ extension NCMClient {
     public func yunbeiTasks() async throws -> APIResponse {
         return try await request(
             "/api/usertool/task/list/all",
-            data: [:]
+            data: [:],
+            crypto: .weapi
         )
     }
 
@@ -77,7 +85,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/usertool/task/point/receive",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -85,8 +94,9 @@ extension NCMClient {
     /// - Returns: API 响应，包含 VIP 成长值信息
     public func vipGrowthpoint() async throws -> APIResponse {
         return try await request(
-            "/api/vipnewactivity/userinfo/growthpoint",
-            data: [:]
+            "/api/vipnewcenter/app/level/growhpoint/basic",
+            data: [:],
+            crypto: .weapi
         )
     }
 
@@ -104,8 +114,9 @@ extension NCMClient {
             "offset": offset,
         ]
         return try await request(
-            "/api/vipnewactivity/userinfo/growthpoint/details",
-            data: data
+            "/api/vipnewcenter/app/level/growth/details",
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -137,13 +148,14 @@ extension NCMClient {
     ///   - endTime: 结束时间戳（可选）
     ///   - limit: 每页数量，默认 60
     /// - Returns: API 响应
-    public func vipTimemachine(startTime: Int? = nil, endTime: Int? = nil, limit: Int = 60) async throws -> APIResponse {
+    public func vipTimemachine(startTime: Int? = nil, endTime: Int? = nil, limit: Int = 60, offset: Int = 0) async throws -> APIResponse {
         var data: [String: Any] = [:]
         if let startTime = startTime, let endTime = endTime {
             data["startTime"] = startTime
             data["endTime"] = endTime
             data["type"] = 1
             data["limit"] = limit
+            data["offset"] = offset
         }
         return try await request("/api/vipmusic/newrecord/weekflow", data: data, crypto: .weapi)
     }

@@ -11,22 +11,29 @@ extension NCMClient {
     /// 手机号登录
     /// - Parameters:
     ///   - phone: 手机号
-    ///   - password: 密码（明文，内部会进行 MD5 加密）
+    ///   - password: 密码（明文，内部会进行 MD5 加密），验证码登录时可为空
     ///   - countrycode: 国家码，默认为 "86"（中国大陆）
+    ///   - captcha: 验证码（可选），传入时使用验证码登录替代密码登录
     /// - Returns: API 响应，包含用户信息和认证 Cookie
     public func loginCellphone(
         phone: String,
-        password: String,
-        countrycode: String = "86"
+        password: String = "",
+        countrycode: String = "86",
+        captcha: String? = nil
     ) async throws -> APIResponse {
-        let data: [String: Any] = [
+        var data: [String: Any] = [
             "type": "1",
             "https": "true",
             "phone": phone,
             "countrycode": countrycode,
-            "password": CryptoEngine.md5(password),
             "remember": "true",
         ]
+        // 支持验证码登录：captcha 不为 nil 时用验证码替代密码
+        if let captcha = captcha {
+            data["captcha"] = captcha
+        } else {
+            data["password"] = CryptoEngine.md5(password)
+        }
         return try await request(
             "/api/w/login/cellphone",
             data: data,
@@ -52,8 +59,7 @@ extension NCMClient {
         ]
         return try await request(
             "/api/w/login",
-            data: data,
-            crypto: .weapi
+            data: data
         )
     }
 
@@ -62,8 +68,7 @@ extension NCMClient {
     public func logout() async throws -> APIResponse {
         return try await request(
             "/api/logout",
-            data: [:],
-            crypto: .weapi
+            data: [:]
         )
     }
 
@@ -119,8 +124,7 @@ extension NCMClient {
         ]
         return try await request(
             "/api/login/qrcode/unikey",
-            data: data,
-            crypto: .weapi
+            data: data
         )
     }
 
@@ -154,8 +158,7 @@ extension NCMClient {
         ]
         return try await request(
             "/api/login/qrcode/client/login",
-            data: data,
-            crypto: .weapi
+            data: data
         )
     }
 
@@ -174,8 +177,7 @@ extension NCMClient {
     public func loginRefresh() async throws -> APIResponse {
         return try await request(
             "/api/login/token/refresh",
-            data: [:],
-            crypto: .weapi
+            data: [:]
         )
     }
 
@@ -204,8 +206,7 @@ extension NCMClient {
         ]
         return try await request(
             "/api/w/register/cellphone",
-            data: data,
-            crypto: .weapi
+            data: data
         )
     }
 }

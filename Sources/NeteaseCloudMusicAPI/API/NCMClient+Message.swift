@@ -20,10 +20,12 @@ extension NCMClient {
         let data: [String: Any] = [
             "limit": limit,
             "offset": offset,
+            "total": "true",
         ]
         return try await request(
             "/api/msg/private/users",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -36,16 +38,20 @@ extension NCMClient {
     public func msgPrivateHistory(
         uid: Int,
         limit: Int = 30,
+        offset: Int = 0,
         before: Int = 0
     ) async throws -> APIResponse {
         let data: [String: Any] = [
             "userId": uid,
             "limit": limit,
+            "offset": offset,
             "time": before,
+            "total": "true",
         ]
         return try await request(
             "/api/msg/private/history",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -66,8 +72,7 @@ extension NCMClient {
         ]
         return try await request(
             "/api/msg/private/send",
-            data: data,
-            crypto: .weapi
+            data: data
         )
     }
 
@@ -91,8 +96,7 @@ extension NCMClient {
         ]
         return try await request(
             "/api/msg/private/send",
-            data: data,
-            crypto: .weapi
+            data: data
         )
     }
 
@@ -116,8 +120,7 @@ extension NCMClient {
         ]
         return try await request(
             "/api/msg/private/send",
-            data: data,
-            crypto: .weapi
+            data: data
         )
     }
 
@@ -141,8 +144,7 @@ extension NCMClient {
         ]
         return try await request(
             "/api/msg/private/send",
-            data: data,
-            crypto: .weapi
+            data: data
         )
     }
 
@@ -153,15 +155,18 @@ extension NCMClient {
     /// - Returns: API 响应，包含通知列表
     public func msgNotices(
         limit: Int = 30,
+        offset: Int = 0,
         lasttime: Int = -1
     ) async throws -> APIResponse {
         let data: [String: Any] = [
             "limit": limit,
+            "offset": offset,
             "time": lasttime,
         ]
         return try await request(
             "/api/msg/notices",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -170,7 +175,8 @@ extension NCMClient {
     public func msgRecentcontact() async throws -> APIResponse {
         return try await request(
             "/api/msg/recentcontact/get",
-            data: [:]
+            data: [:],
+            crypto: .weapi
         )
     }
 
@@ -182,10 +188,11 @@ extension NCMClient {
     ///   - before: 分页时间戳，默认 "-1"
     ///   - limit: 每页数量，默认 30
     /// - Returns: API 响应
-    public func msgComments(uid: Int, before: String = "-1", limit: Int = 30) async throws -> APIResponse {
+    public func msgComments(uid: Int, before: String = "-1", limit: Int = 30, offset: Int = 0) async throws -> APIResponse {
         let data: [String: Any] = [
             "beforeTime": before,
             "limit": limit,
+            "offset": offset,
             "total": "true",
             "uid": uid,
         ]

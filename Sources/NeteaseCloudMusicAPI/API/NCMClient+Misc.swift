@@ -47,18 +47,28 @@ extension NCMClient {
     /// 获取日历
     public func calendar(startTime: Int = 0, endTime: Int = 0) async throws -> APIResponse {
         let data: [String: Any] = ["startTime": startTime, "endTime": endTime]
-        return try await request("/api/mcalendar/detail", data: data)
+        return try await request("/api/mcalendar/detail", data: data,
+            crypto: .weapi
+        )
     }
 
     /// 获取相似歌单
-    public func simiPlaylist(id: Int) async throws -> APIResponse {
-        let data: [String: Any] = ["songid": id, "limit": 50, "offset": 0]
+    /// - Parameters:
+    ///   - id: 歌曲 ID
+    ///   - limit: 每页数量，默认 50
+    ///   - offset: 偏移量，默认 0
+    public func simiPlaylist(id: Int, limit: Int = 50, offset: Int = 0) async throws -> APIResponse {
+        let data: [String: Any] = ["songid": id, "limit": limit, "offset": offset]
         return try await request("/api/discovery/simiPlaylist", data: data, crypto: .weapi)
     }
 
     /// 获取相似歌曲
-    public func simiSong(id: Int) async throws -> APIResponse {
-        let data: [String: Any] = ["songid": id, "limit": 50, "offset": 0]
+    /// - Parameters:
+    ///   - id: 歌曲 ID
+    ///   - limit: 每页数量，默认 50
+    ///   - offset: 偏移量，默认 0
+    public func simiSong(id: Int, limit: Int = 50, offset: Int = 0) async throws -> APIResponse {
+        let data: [String: Any] = ["songid": id, "limit": limit, "offset": offset]
         return try await request("/api/v1/discovery/simiSong", data: data, crypto: .weapi)
     }
 
@@ -69,19 +79,28 @@ extension NCMClient {
     }
 
     /// 获取相似用户（听歌相似）
-    public func simiUser(id: Int) async throws -> APIResponse {
-        let data: [String: Any] = ["songid": id, "limit": 50, "offset": 0]
+    /// - Parameters:
+    ///   - id: 歌曲 ID
+    ///   - limit: 每页数量，默认 50
+    ///   - offset: 偏移量，默认 0
+    public func simiUser(id: Int, limit: Int = 50, offset: Int = 0) async throws -> APIResponse {
+        let data: [String: Any] = ["songid": id, "limit": limit, "offset": offset]
         return try await request("/api/discovery/simiUser", data: data, crypto: .weapi)
     }
 
     /// FM 垃圾桶（不喜欢该歌曲）
-    public func fmTrash(id: Int) async throws -> APIResponse {
-        return try await request("/api/radio/trash/add", data: ["songId": id])
+    /// - Parameters:
+    ///   - id: 歌曲 ID
+    ///   - alg: 推荐算法标识，默认 "RT"
+    ///   - time: 播放时长（秒），默认 25
+    public func fmTrash(id: Int, alg: String = "RT", time: Int = 25) async throws -> APIResponse {
+        let data: [String: Any] = ["songId": id, "alg": alg, "time": time]
+        return try await request("/api/radio/trash/add", data: data, crypto: .weapi)
     }
 
     /// 每日签到
     public func dailySignin(type: DailySigninType = .android) async throws -> APIResponse {
-        return try await request("/api/point/dailyTask", data: ["type": type.rawValue], crypto: .weapi)
+        return try await request("/api/point/dailyTask", data: ["type": type.rawValue])
     }
 
     /// 资源点赞/取消点赞
@@ -314,8 +333,8 @@ extension NCMClient {
     }
 
     /// 搜索歌手（UGC）
-    public func ugcArtistSearch(keyword: String, limit: Int = 40) async throws -> APIResponse {
-        let data: [String: Any] = ["keyword": keyword, "limit": limit]
+    public func ugcArtistSearch(keyword: String, limit: Int = 40, offset: Int = 0) async throws -> APIResponse {
+        let data: [String: Any] = ["keyword": keyword, "limit": limit, "offset": offset]
         return try await request("/api/rep/ugc/artist/search", data: data)
     }
 
@@ -407,9 +426,9 @@ extension NCMClient {
     }
 
     /// 广播电台 - 我的收藏
-    public func broadcastChannelCollectList(limit: Int = 99999) async throws -> APIResponse {
+    public func broadcastChannelCollectList(limit: Int = 99999, offset: Int = 0) async throws -> APIResponse {
         let data: [String: Any] = [
-            "contentType": "BROADCAST", "limit": limit,
+            "contentType": "BROADCAST", "limit": limit, "offset": offset,
             "timeReverseOrder": "true", "startDate": "4762584922000",
         ]
         return try await request("/api/content/channel/collect/list", data: data)
@@ -421,10 +440,10 @@ extension NCMClient {
     }
 
     /// 广播电台 - 全部电台
-    public func broadcastChannelList(categoryId: String = "0", regionId: String = "0", limit: Int = 20, lastId: String = "0", score: String = "-1") async throws -> APIResponse {
+    public func broadcastChannelList(categoryId: String = "0", regionId: String = "0", limit: Int = 20, offset: Int = 0, lastId: String = "0", score: String = "-1") async throws -> APIResponse {
         let data: [String: Any] = [
             "categoryId": categoryId, "regionId": regionId,
-            "limit": limit, "lastId": lastId, "score": score,
+            "limit": limit, "offset": offset, "lastId": lastId, "score": score,
         ]
         return try await request("/api/voice/broadcast/channel/list", data: data)
     }
@@ -484,10 +503,10 @@ extension NCMClient {
     // MARK: - Mlog
 
     /// 获取歌曲相关视频（Mlog）
-    public func mlogMusicRcmd(songid: Int, mvid: Int = 0, limit: Int = 10) async throws -> APIResponse {
+    public func mlogMusicRcmd(songid: Int, mvid: Int = 0, limit: Int = 10, offset: Int = 0) async throws -> APIResponse {
         let data: [String: Any] = [
             "id": mvid, "type": 2, "rcmdType": 20,
-            "limit": limit, "extInfo": "{\"songId\":\(songid)}",
+            "limit": limit, "offset": offset, "extInfo": "{\"songId\":\(songid)}",
         ]
         return try await request("/api/mlog/rcmd/feed/list", data: data)
     }
@@ -619,33 +638,33 @@ extension NCMClient {
     }
 
     /// 获取最近播放 - 专辑
-    public func recordRecentAlbum(limit: Int = 100) async throws -> APIResponse {
-        return try await request("/api/play-record/album/list", data: ["limit": limit], crypto: .weapi)
+    public func recordRecentAlbum(limit: Int = 100, offset: Int = 0) async throws -> APIResponse {
+        return try await request("/api/play-record/album/list", data: ["limit": limit, "offset": offset], crypto: .weapi)
     }
 
     /// 获取最近播放 - 电台
-    public func recordRecentDj(limit: Int = 100) async throws -> APIResponse {
-        return try await request("/api/play-record/djradio/list", data: ["limit": limit], crypto: .weapi)
+    public func recordRecentDj(limit: Int = 100, offset: Int = 0) async throws -> APIResponse {
+        return try await request("/api/play-record/djradio/list", data: ["limit": limit, "offset": offset], crypto: .weapi)
     }
 
     /// 获取最近播放 - 歌单
-    public func recordRecentPlaylist(limit: Int = 100) async throws -> APIResponse {
-        return try await request("/api/play-record/playlist/list", data: ["limit": limit], crypto: .weapi)
+    public func recordRecentPlaylist(limit: Int = 100, offset: Int = 0) async throws -> APIResponse {
+        return try await request("/api/play-record/playlist/list", data: ["limit": limit, "offset": offset], crypto: .weapi)
     }
 
     /// 获取最近播放 - 歌曲
-    public func recordRecentSong(limit: Int = 100) async throws -> APIResponse {
-        return try await request("/api/play-record/song/list", data: ["limit": limit], crypto: .weapi)
+    public func recordRecentSong(limit: Int = 100, offset: Int = 0) async throws -> APIResponse {
+        return try await request("/api/play-record/song/list", data: ["limit": limit, "offset": offset], crypto: .weapi)
     }
 
     /// 获取最近播放 - 视频
-    public func recordRecentVideo(limit: Int = 100) async throws -> APIResponse {
-        return try await request("/api/play-record/newvideo/list", data: ["limit": limit], crypto: .weapi)
+    public func recordRecentVideo(limit: Int = 100, offset: Int = 0) async throws -> APIResponse {
+        return try await request("/api/play-record/newvideo/list", data: ["limit": limit, "offset": offset], crypto: .weapi)
     }
 
     /// 获取最近播放 - 声音
-    public func recordRecentVoice(limit: Int = 100) async throws -> APIResponse {
-        return try await request("/api/play-record/voice/list", data: ["limit": limit], crypto: .weapi)
+    public func recordRecentVoice(limit: Int = 100, offset: Int = 0) async throws -> APIResponse {
+        return try await request("/api/play-record/voice/list", data: ["limit": limit, "offset": offset], crypto: .weapi)
     }
 
     /// 分享资源到动态
@@ -903,56 +922,8 @@ extension NCMClient {
     public func voiceUpload(voiceData: String, dupkey: String? = nil) async throws -> APIResponse {
         let key = dupkey ?? UUID().uuidString.lowercased()
         let data: [String: Any] = ["dupkey": key, "voiceData": voiceData]
-        return try await request("/api/voice/workbench/voice/batch/upload/v2", data: data)
-    }
-
-    // MARK: - 第三方解灰
-
-    /// 歌曲解灰 - UNM 匹配（第三方服务）
-    /// 通过第三方 UnblockMusic 服务匹配歌曲可用 URL
-    /// - Parameters:
-    ///   - id: 歌曲 ID
-    ///   - source: 匹配来源（如 "qq"、"kuwo"、"kugou"、"migu" 等，可选）
-    ///   - serverUrl: UNM 服务地址（如 "http://localhost:8080"），需自行部署
-    /// - Returns: API 响应，包含匹配到的歌曲 URL
-    /// - Note: 需要自行部署 UNM-Server，此方法仅封装 HTTP 请求
-    public func songUrlMatch(id: Int, source: String? = nil, serverUrl: String) async throws -> APIResponse {
-        var urlStr = "\(serverUrl)/match?id=\(id)"
-        if let source = source {
-            urlStr += "&source=\(source)"
-        }
-        guard let url = URL(string: urlStr) else {
-            return APIResponse(status: 400, body: ["code": 400, "msg": "无效的 URL"], cookies: [])
-        }
-        let (data, response) = try await URLSession.shared.data(from: url)
-        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 200
-        let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
-        return APIResponse(status: statusCode, body: json.isEmpty ? ["code": statusCode] : json, cookies: [])
-    }
-
-    /// 歌曲解灰 - GD Studio API（第三方服务）
-    /// 通过第三方 API 获取歌曲直链，默认使用 GD Studio 服务，支持替换为其他兼容源
-    /// - Parameters:
-    ///   - id: 歌曲 ID
-    ///   - br: 音质，可选值 "128"、"192"、"320"、"740"、"999"，默认 "320"
-    ///   - serverUrl: 第三方 API 基础地址，默认 "https://music-api.gdstudio.xyz/api.php"，可替换为任何兼容接口
-    /// - Returns: API 响应，包含歌曲 URL
-    public func songUrlNcmget(id: Int, br: String = "320", serverUrl: String = "https://music-api.gdstudio.xyz/api.php") async throws -> APIResponse {
-        let validBR = ["128", "192", "320", "740", "999"]
-        guard validBR.contains(br) else {
-            return APIResponse(status: 400, body: ["code": 400, "msg": "无效音质参数", "allowed_values": validBR], cookies: [])
-        }
-        let urlStr = "\(serverUrl)?types=url&id=\(id)&br=\(br)"
-        guard let url = URL(string: urlStr) else {
-            return APIResponse(status: 400, body: ["code": 400, "msg": "无效的 URL"], cookies: [])
-        }
-        let (data, response) = try await URLSession.shared.data(from: url)
-        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 200
-        let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
-        return APIResponse(
-            status: statusCode,
-            body: ["code": 200, "data": ["id": id, "br": br, "url": json["url"] ?? ""]],
-            cookies: []
+        return try await request("/api/voice/workbench/voice/batch/upload/v2", data: data,
+            crypto: .weapi
         )
     }
 

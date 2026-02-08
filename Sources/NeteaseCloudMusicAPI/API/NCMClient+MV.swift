@@ -17,7 +17,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/v1/mv/detail",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -31,7 +32,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/comment/commentthread/info",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -47,7 +49,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/song/enhance/play/mv/url",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -92,11 +95,13 @@ extension NCMClient {
     /// - Returns: API 响应，包含最新 MV 列表
     public func mvFirst(
         area: MvArea = .all,
-        limit: Int = 30
+        limit: Int = 30,
+        offset: Int = 0
     ) async throws -> APIResponse {
         let data: [String: Any] = [
             "area": area.rawValue,
             "limit": limit,
+            "offset": offset,
             "total": true,
         ]
         return try await request(
@@ -140,7 +145,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/mv/\(actionStr)",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -160,7 +166,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/cloudvideo/allvideo/sublist",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -173,7 +180,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/cloudvideo/v1/video/detail",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -187,7 +195,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/comment/commentthread/info",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -203,7 +212,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/cloudvideo/playurl",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 
@@ -222,7 +232,8 @@ extension NCMClient {
         ]
         return try await request(
             "/api/cloudvideo/video/\(actionStr)",
-            data: data
+            data: data,
+            crypto: .weapi
         )
     }
 

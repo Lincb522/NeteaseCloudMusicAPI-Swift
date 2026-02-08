@@ -43,6 +43,9 @@ public enum NCMError: Error, LocalizedError {
     /// - Parameter detail: 详细错误描述
     case serializationFailed(detail: String)
 
+    /// 无效的 URL
+    case invalidURL
+
     // MARK: - LocalizedError 协议实现
 
     /// 本地化的错误描述（中文）
@@ -60,6 +63,8 @@ public enum NCMError: Error, LocalizedError {
             return "无效响应: \(detail)"
         case .serializationFailed(let detail):
             return "序列化失败: \(detail)"
+        case .invalidURL:
+            return "无效的 URL 地址"
         }
     }
 }

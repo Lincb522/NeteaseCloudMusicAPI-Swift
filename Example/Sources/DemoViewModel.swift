@@ -67,6 +67,127 @@ class DemoViewModel: ObservableObject {
     @Published var djProgramList: [[String: Any]] = []
     @Published var selectedRadioName: String = ""
 
+    // MARK: - 专辑
+
+    @Published var newAlbums: [[String: Any]] = []
+    @Published var newestAlbums: [[String: Any]] = []
+    @Published var albumDetailName: String = ""
+    @Published var albumTracks: [[String: Any]] = []
+
+    // MARK: - 歌手
+
+    @Published var artistIdInput: String = "6452"
+    @Published var artistName: String = ""
+    @Published var artistAlias: String = ""
+    @Published var artistFansCount: Int = 0
+    @Published var artistTopSongs: [[String: Any]] = []
+    @Published var artistAlbums: [[String: Any]] = []
+    @Published var simiArtists: [[String: Any]] = []
+    @Published var artistListData: [[String: Any]] = []
+
+    // MARK: - MV / 视频
+
+    @Published var mvList: [[String: Any]] = []
+    @Published var mvFirstList: [[String: Any]] = []
+    @Published var mvExclusiveList: [[String: Any]] = []
+    @Published var mvDetailName: String = ""
+    @Published var mvDetailArtist: String = ""
+    @Published var mvDetailUrl: String = ""
+    @Published var mvDetailPlayCount: Int = 0
+    @Published var mvDetailCommentCount: Int = 0
+    @Published var mvDetailLikeCount: Int = 0
+
+    // MARK: - 评论
+
+    @Published var commentResourceId: String = "347230"
+    @Published var commentTypeIndex: Int = 0
+    @Published var commentList: [[String: Any]] = []
+    @Published var commentTotal: Int = 0
+    @Published var isHotComments: Bool = false
+
+    // MARK: - 用户
+
+    @Published var userIdInput: String = ""
+    @Published var userInfoName: String = ""
+    @Published var userInfoSignature: String = ""
+    @Published var userInfoFollows: Int = 0
+    @Published var userInfoFolloweds: Int = 0
+    @Published var userInfoLevel: Int = 0
+    @Published var userPlaylists: [[String: Any]] = []
+    @Published var userRecordSongs: [[String: Any]] = []
+    @Published var accountInfoText: String = ""
+
+    // MARK: - 推荐
+
+    @Published var personalizedPlaylists: [[String: Any]] = []
+    @Published var personalizedSongs: [[String: Any]] = []
+    @Published var dailyRecommendSongs: [[String: Any]] = []
+    @Published var personalFmSongs: [[String: Any]] = []
+
+    // MARK: - 云盘
+
+    @Published var cloudSongs: [[String: Any]] = []
+    @Published var cloudSongCount: Int = 0
+
+    // MARK: - VIP / 云贝
+
+    @Published var vipInfoText: String = ""
+    @Published var vipGrowthText: String = ""
+    @Published var vipTaskList: [[String: Any]] = []
+    @Published var yunbeiInfoText: String = ""
+    @Published var yunbeiTaskList: [[String: Any]] = []
+
+    // MARK: - 杂项
+
+    @Published var styleListData: [[String: Any]] = []
+    @Published var homepageInfo: String = ""
+    @Published var signinInfo: String = ""
+    @Published var countriesCodeCount: Int = 0
+    @Published var recentListenInfo: String = ""
+    @Published var simiSongIdInput: String = "347230"
+    @Published var simiResults: [[String: Any]] = []
+
+    // MARK: - 解灰
+
+    @Published var unmEnabled: Bool = false
+    @Published var unmServerUrl: String = "http://localhost:5000"
+    @Published var httpApiEnabled: Bool = false
+    @Published var httpApiServerUrl: String = "https://music-api.gdstudio.xyz/api.php"
+    @Published var lxMusicEnabled: Bool = false
+    @Published var lxMusicServerUrl: String = "http://localhost:9763"
+    @Published var unblockQuality: String = "320"
+    @Published var unblockSongId: String = "347230"
+    @Published var unblockSongName: String = ""
+    @Published var unblockResult: UnblockResult?
+    @Published var unblockError: String?
+    @Published var unblockPlayStatus: String = ""
+    @Published var isUnblockPlaying: Bool = false
+    @Published var isUnblockLoading: Bool = false
+    @Published var isUnblockAllLoading: Bool = false
+    @Published var unblockAllResults: [UnblockTestItem] = []
+    @Published var matchResult: String = ""
+    @Published var ncmgetResult: String = ""
+    @Published var isMatchLoading: Bool = false
+    @Published var isNcmgetLoading: Bool = false
+    private var unblockPlayer: AVPlayer?
+
+    /// 解灰全部音源对比测试结果项
+    struct UnblockTestItem {
+        let sourceName: String
+        let success: Bool
+        let detail: String
+        let duration: String
+    }
+
+    /// 当前启用的音源数量
+    var enabledSourceCount: Int {
+        var count = 0
+        if unmEnabled { count += 1 }
+        if httpApiEnabled { count += 1 }
+        if lxMusicEnabled { count += 1 }
+        return count
+    }
+
     // MARK: - 通用状态
 
     @Published var isLoading: Bool = false
@@ -550,6 +671,933 @@ class DemoViewModel: ObservableObject {
         isLoading = false
     }
 
+    // MARK: - 解灰测试
+
+    /// 构建解灰管理器（根据当前启用的音源）
+    private func buildUnblockManager() -> UnblockManager {
+        let manager = UnblockManager()
+        if unmEnabled {
+            let url = unmServerUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !url.isEmpty {
+                manager.register(UNMSource(serverUrl: url))
+                print("[NCMDemo] 📦 注册 UNM 音源: \(url)")
+            }
+        }
+        if httpApiEnabled {
+            let url = httpApiServerUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !url.isEmpty {
+                manager.register(HTTPAPISource(name: "HTTPAPISource", serverUrl: url))
+                print("[NCMDemo] 📦 注册 HTTP API 音源: \(url)")
+            }
+        }
+        if lxMusicEnabled {
+            let url = lxMusicServerUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !url.isEmpty {
+                manager.register(LxMusicSource(name: "LxMusic", serverUrl: url))
+                print("[NCMDemo] 📦 注册洛雪音源: \(url)")
+            }
+        }
+        return manager
+    }
+
+    /// 获取歌曲名称（用于解灰测试显示）
+    private func fetchSongName(id: Int) async -> (name: String?, artist: String?, album: String?) {
+        do {
+            let resp = try await client.songDetail(ids: [id])
+            if let songs = resp.body["songs"] as? [[String: Any]], let song = songs.first {
+                let name = song["name"] as? String
+                let artist = DemoViewModel.artistNames(from: song)
+                let album = DemoViewModel.albumName(from: song)
+                return (name, artist, album)
+            }
+        } catch {
+            print("[NCMDemo] ⚠️ 获取歌曲详情失败: \(error)")
+        }
+        return (nil, nil, nil)
+    }
+
+    /// 单曲解灰测试（使用 UnblockManager 优先级匹配）
+    func testUnblockSingle() async {
+        guard let songId = Int(unblockSongId) else {
+            unblockError = "请输入有效的歌曲 ID"
+            return
+        }
+        isUnblockLoading = true
+        unblockResult = nil
+        unblockError = nil
+        unblockSongName = ""
+        unblockPlayStatus = ""
+        print("[NCMDemo] ➡️ 解灰测试: id=\(songId) 音质=\(unblockQuality)")
+
+        // 获取歌曲信息
+        let info = await fetchSongName(id: songId)
+        if let name = info.name {
+            unblockSongName = "\(name) - \(info.artist ?? "未知")"
+        }
+
+        let manager = buildUnblockManager()
+        let start = CFAbsoluteTimeGetCurrent()
+
+        let result = await manager.match(
+            id: songId,
+            title: info.name,
+            artist: info.artist,
+            album: info.album,
+            quality: unblockQuality
+        )
+        let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+
+        if let result = result, !result.url.isEmpty {
+            unblockResult = result
+            print("[NCMDemo] ✅ 解灰成功 [\(ms)ms] 来源=\(result.platform) 音质=\(result.quality)")
+            print("[NCMDemo]    URL: \(result.url)")
+        } else {
+            unblockError = "所有音源均未匹配到结果 (\(ms)ms)"
+            print("[NCMDemo] ❌ 解灰失败 [\(ms)ms] 所有音源无结果")
+        }
+        isUnblockLoading = false
+    }
+
+    /// 全部音源对比测试
+    func testUnblockAll() async {
+        guard let songId = Int(unblockSongId) else {
+            unblockError = "请输入有效的歌曲 ID"
+            return
+        }
+        isUnblockAllLoading = true
+        unblockAllResults = []
+        print("[NCMDemo] ➡️ 全部音源对比测试: id=\(songId)")
+
+        let info = await fetchSongName(id: songId)
+        if let name = info.name {
+            unblockSongName = "\(name) - \(info.artist ?? "未知")"
+        }
+
+        let manager = buildUnblockManager()
+        let allResults = await manager.matchAll(
+            id: songId,
+            title: info.name,
+            artist: info.artist,
+            album: info.album,
+            quality: unblockQuality
+        )
+
+        var items: [UnblockTestItem] = []
+        for r in allResults {
+            let start = CFAbsoluteTimeGetCurrent()
+            switch r.result {
+            case .success(let res):
+                let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+                if res.url.isEmpty {
+                    items.append(UnblockTestItem(
+                        sourceName: r.source,
+                        success: false,
+                        detail: "返回空 URL",
+                        duration: "\(ms)ms"
+                    ))
+                } else {
+                    items.append(UnblockTestItem(
+                        sourceName: r.source,
+                        success: true,
+                        detail: "音质: \(res.quality) | \(res.url.prefix(60))...",
+                        duration: "\(ms)ms"
+                    ))
+                }
+            case .failure(let error):
+                let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+                items.append(UnblockTestItem(
+                    sourceName: r.source,
+                    success: false,
+                    detail: error.localizedDescription,
+                    duration: "\(ms)ms"
+                ))
+            }
+        }
+        unblockAllResults = items
+        print("[NCMDemo] ✅ 对比测试完成: \(items.filter { $0.success }.count)/\(items.count) 成功")
+        isUnblockAllLoading = false
+    }
+
+    /// 播放解灰结果
+    func playUnblockResult() async {
+        guard let result = unblockResult, !result.url.isEmpty else { return }
+        if isUnblockPlaying {
+            stopUnblockPlaying()
+            return
+        }
+        guard let url = URL(string: result.url) else {
+            unblockPlayStatus = "无效的播放 URL"
+            return
+        }
+        print("[NCMDemo] ▶️ 播放解灰结果: \(result.url)")
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            try AVAudioSession.sharedInstance().setActive(true)
+            let playerItem = AVPlayerItem(url: url)
+            unblockPlayer = AVPlayer(playerItem: playerItem)
+            unblockPlayer?.play()
+            isUnblockPlaying = true
+            unblockPlayStatus = "正在播放 (\(result.platform) \(result.quality))"
+        } catch {
+            unblockPlayStatus = "播放失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 播放失败: \(error)")
+        }
+    }
+
+    /// 停止解灰播放
+    func stopUnblockPlaying() {
+        unblockPlayer?.pause()
+        unblockPlayer = nil
+        isUnblockPlaying = false
+        unblockPlayStatus = "已停止"
+        print("[NCMDemo] ⏹ 停止解灰播放")
+    }
+
+    /// 兼容接口测试 - songUrlMatch
+    func testSongUrlMatch() async {
+        guard let songId = Int(unblockSongId) else { return }
+        let url = unmServerUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !url.isEmpty else {
+            matchResult = "请先填写 UNM 服务地址"
+            return
+        }
+        isMatchLoading = true
+        matchResult = ""
+        let start = CFAbsoluteTimeGetCurrent()
+        print("[NCMDemo] ➡️ songUrlMatch: id=\(songId) server=\(url)")
+
+        do {
+            let resp = try await client.songUrlMatch(id: songId, serverUrl: url)
+            let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+            let matchUrl = resp.body["url"] as? String ?? "无"
+            let source = resp.body["source"] as? String ?? "未知"
+            matchResult = "[\(ms)ms] 来源: \(source) | URL: \(matchUrl.prefix(80))"
+            print("[NCMDemo] ✅ songUrlMatch [\(ms)ms] source=\(source)")
+        } catch {
+            let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+            matchResult = "[\(ms)ms] 失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ songUrlMatch [\(ms)ms] \(error)")
+        }
+        isMatchLoading = false
+    }
+
+    /// 兼容接口测试 - songUrlNcmget
+    func testSongUrlNcmget() async {
+        guard let songId = Int(unblockSongId) else { return }
+        isNcmgetLoading = true
+        ncmgetResult = ""
+        let start = CFAbsoluteTimeGetCurrent()
+        print("[NCMDemo] ➡️ songUrlNcmget: id=\(songId) br=\(unblockQuality)")
+
+        do {
+            let resp = try await client.songUrlNcmget(id: songId, br: unblockQuality)
+            let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+            if let data = resp.body["data"] as? [String: Any] {
+                let resultUrl = data["url"] as? String ?? "无"
+                ncmgetResult = "[\(ms)ms] URL: \(resultUrl.prefix(80))"
+                print("[NCMDemo] ✅ songUrlNcmget [\(ms)ms]")
+            } else {
+                ncmgetResult = "[\(ms)ms] 无数据"
+            }
+        } catch {
+            let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+            ncmgetResult = "[\(ms)ms] 失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ songUrlNcmget [\(ms)ms] \(error)")
+        }
+        isNcmgetLoading = false
+    }
+
+    // MARK: - 专辑
+
+    func fetchNewAlbums() async {
+        isLoading = true
+        do {
+            let resp = try await client.albumNew(limit: 20)
+            if let albums = resp.body["albums"] as? [[String: Any]] {
+                newAlbums = albums
+                print("[NCMDemo] ✅ 新碟 \(albums.count) 张")
+            }
+        } catch {
+            errorMessage = "获取新碟失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 新碟失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchNewestAlbums() async {
+        isLoading = true
+        do {
+            let resp = try await client.albumNewest()
+            if let albums = resp.body["albums"] as? [[String: Any]] {
+                newestAlbums = albums
+                print("[NCMDemo] ✅ 最新专辑 \(albums.count) 张")
+            }
+        } catch {
+            errorMessage = "获取最新专辑失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 最新专辑失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchAlbumDetail(id: Int, name: String) async {
+        isLoading = true
+        albumDetailName = name
+        albumTracks = []
+        do {
+            let resp = try await client.album(id: id)
+            if let songs = resp.body["songs"] as? [[String: Any]] {
+                albumTracks = songs
+                print("[NCMDemo] ✅ 专辑详情 \(songs.count) 首")
+            }
+        } catch {
+            errorMessage = "获取专辑详情失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 专辑详情失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    // MARK: - 歌手
+
+    func fetchArtistInfo() async {
+        guard let id = Int(artistIdInput) else { return }
+        isLoading = true
+        artistName = ""
+        artistAlias = ""
+        artistFansCount = 0
+        artistTopSongs = []
+        artistAlbums = []
+        simiArtists = []
+
+        // 并发加载详情、热门歌曲、专辑、相似歌手
+        async let detailTask: () = _fetchArtistDetail(id: id)
+        async let topTask: () = _fetchArtistTopSong(id: id)
+        async let albumTask: () = _fetchArtistAlbum(id: id)
+        async let simiTask: () = _fetchSimiArtist(id: id)
+        _ = await (detailTask, topTask, albumTask, simiTask)
+        isLoading = false
+    }
+
+    private func _fetchArtistDetail(id: Int) async {
+        do {
+            let resp = try await client.artistDetail(id: id)
+            if let data = resp.body["data"] as? [String: Any],
+               let artist = data["artist"] as? [String: Any] {
+                artistName = artist["name"] as? String ?? ""
+                let aliases = artist["alias"] as? [String] ?? []
+                artistAlias = aliases.joined(separator: " / ")
+                artistFansCount = (data["secondaryExpertIdentiy"] as? [String: Any])?["fansCount"] as? Int ?? 0
+                print("[NCMDemo] ✅ 歌手: \(artistName)")
+            }
+        } catch {
+            print("[NCMDemo] ❌ 歌手详情失败: \(error)")
+        }
+    }
+
+    private func _fetchArtistTopSong(id: Int) async {
+        do {
+            let resp = try await client.artistTopSong(id: id)
+            if let songs = resp.body["songs"] as? [[String: Any]] {
+                artistTopSongs = songs
+                print("[NCMDemo] ✅ 热门歌曲 \(songs.count) 首")
+            }
+        } catch {
+            print("[NCMDemo] ❌ 热门歌曲失败: \(error)")
+        }
+    }
+
+    private func _fetchArtistAlbum(id: Int) async {
+        do {
+            let resp = try await client.artistAlbum(id: id, limit: 20)
+            if let albums = resp.body["hotAlbums"] as? [[String: Any]] {
+                artistAlbums = albums
+                print("[NCMDemo] ✅ 歌手专辑 \(albums.count) 张")
+            }
+        } catch {
+            print("[NCMDemo] ❌ 歌手专辑失败: \(error)")
+        }
+    }
+
+    private func _fetchSimiArtist(id: Int) async {
+        do {
+            let resp = try await client.simiArtist(id: id)
+            if let artists = resp.body["artists"] as? [[String: Any]] {
+                simiArtists = artists
+                print("[NCMDemo] ✅ 相似歌手 \(artists.count)")
+            }
+        } catch {
+            print("[NCMDemo] ❌ 相似歌手失败: \(error)")
+        }
+    }
+
+    func fetchArtistList() async {
+        isLoading = true
+        do {
+            let resp = try await client.artistList(area: .zh, type: .male, limit: 30)
+            if let artists = resp.body["artists"] as? [[String: Any]] {
+                artistListData = artists
+                print("[NCMDemo] ✅ 歌手列表 \(artists.count)")
+            }
+        } catch {
+            errorMessage = "获取歌手列表失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 歌手列表失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    // MARK: - MV / 视频
+
+    func fetchMvAll() async {
+        isLoading = true
+        do {
+            let resp = try await client.mvAll(limit: 20)
+            if let data = resp.body["data"] as? [[String: Any]] {
+                mvList = data
+                print("[NCMDemo] ✅ MV 列表 \(data.count)")
+            }
+        } catch {
+            errorMessage = "获取 MV 列表失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ MV 列表失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchMvDetail(id: Int) async {
+        isLoading = true
+        mvDetailName = ""
+        mvDetailArtist = ""
+        mvDetailUrl = ""
+        mvDetailPlayCount = 0
+        mvDetailCommentCount = 0
+        mvDetailLikeCount = 0
+        do {
+            let resp = try await client.mvDetail(mvid: id)
+            if let data = resp.body["data"] as? [String: Any] {
+                mvDetailName = data["name"] as? String ?? ""
+                mvDetailArtist = (data["artists"] as? [[String: Any]])?.first?["name"] as? String ?? ""
+                mvDetailPlayCount = data["playCount"] as? Int ?? 0
+                mvDetailCommentCount = data["commentCount"] as? Int ?? 0
+                mvDetailLikeCount = data["likeCount"] as? Int ?? 0
+            }
+            // 获取播放链接
+            let urlResp = try await client.mvUrl(id: id)
+            if let data = urlResp.body["data"] as? [String: Any] {
+                mvDetailUrl = data["url"] as? String ?? ""
+            }
+            print("[NCMDemo] ✅ MV 详情: \(mvDetailName)")
+        } catch {
+            print("[NCMDemo] ❌ MV 详情失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchMvFirst() async {
+        isLoading = true
+        do {
+            let resp = try await client.mvFirst(limit: 20)
+            if let data = resp.body["data"] as? [[String: Any]] {
+                mvFirstList = data
+                print("[NCMDemo] ✅ 最新 MV \(data.count)")
+            }
+        } catch {
+            print("[NCMDemo] ❌ 最新 MV 失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchMvExclusive() async {
+        isLoading = true
+        do {
+            let resp = try await client.mvExclusiveRcmd(limit: 20)
+            if let data = resp.body["data"] as? [[String: Any]] {
+                mvExclusiveList = data
+                print("[NCMDemo] ✅ 网易出品 MV \(data.count)")
+            }
+        } catch {
+            print("[NCMDemo] ❌ 网易出品 MV 失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    // MARK: - 评论
+
+    private var commentType: CommentType {
+        switch commentTypeIndex {
+        case 0: return .song
+        case 1: return .mv
+        case 2: return .playlist
+        case 3: return .album
+        default: return .song
+        }
+    }
+
+    func fetchComments() async {
+        guard let id = Int(commentResourceId) else { return }
+        isLoading = true
+        isHotComments = false
+        commentList = []
+        commentTotal = 0
+        do {
+            let resp = try await client.commentNew(type: commentType, id: id, pageSize: 20)
+            if let data = resp.body["data"] as? [String: Any] {
+                commentTotal = data["totalCount"] as? Int ?? 0
+                if let comments = data["comments"] as? [[String: Any]] {
+                    commentList = comments
+                }
+            }
+            print("[NCMDemo] ✅ 评论 \(commentList.count) 条 / 共 \(commentTotal)")
+        } catch {
+            errorMessage = "获取评论失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 评论失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchHotComments() async {
+        guard let id = Int(commentResourceId) else { return }
+        isLoading = true
+        isHotComments = true
+        commentList = []
+        do {
+            let resp = try await client.commentHot(type: commentType, id: id, limit: 20)
+            if let comments = resp.body["hotComments"] as? [[String: Any]] {
+                commentList = comments
+                commentTotal = resp.body["total"] as? Int ?? 0
+            }
+            print("[NCMDemo] ✅ 热评 \(commentList.count) 条")
+        } catch {
+            errorMessage = "获取热评失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 热评失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    // MARK: - 用户
+
+    func fetchUserInfo() async {
+        guard let uid = Int(userIdInput) else { return }
+        isLoading = true
+        userInfoName = ""
+        userInfoSignature = ""
+        userPlaylists = []
+        do {
+            let resp = try await client.userDetail(uid: uid)
+            if let profile = resp.body["profile"] as? [String: Any] {
+                userInfoName = profile["nickname"] as? String ?? ""
+                userInfoSignature = profile["signature"] as? String ?? ""
+                userInfoFollows = profile["follows"] as? Int ?? 0
+                userInfoFolloweds = profile["followeds"] as? Int ?? 0
+            }
+            userInfoLevel = resp.body["level"] as? Int ?? 0
+            print("[NCMDemo] ✅ 用户: \(userInfoName)")
+
+            // 同时获取歌单
+            let plResp = try await client.userPlaylist(uid: uid, limit: 30)
+            if let playlist = plResp.body["playlist"] as? [[String: Any]] {
+                userPlaylists = playlist
+                print("[NCMDemo] ✅ 用户歌单 \(playlist.count)")
+            }
+        } catch {
+            errorMessage = "获取用户信息失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 用户信息失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchCurrentAccount() async {
+        isLoading = true
+        do {
+            let resp = try await client.userAccount()
+            if let account = resp.body["account"] as? [String: Any] {
+                let id = account["id"] as? Int ?? 0
+                let vipType = account["vipType"] as? Int ?? 0
+                accountInfoText = "账号 ID: \(id) | VIP 类型: \(vipType)"
+                print("[NCMDemo] ✅ 账号信息: \(accountInfoText)")
+            } else {
+                accountInfoText = "未登录"
+            }
+        } catch {
+            accountInfoText = "获取失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 账号信息失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchUserLevel() async {
+        isLoading = true
+        do {
+            let resp = try await client.userLevel()
+            if let data = resp.body["data"] as? [String: Any] {
+                let level = data["level"] as? Int ?? 0
+                accountInfoText = "等级: Lv.\(level)"
+                print("[NCMDemo] ✅ 等级: Lv.\(level)")
+            }
+        } catch {
+            accountInfoText = "获取等级失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 等级失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchUserSubcount() async {
+        isLoading = true
+        do {
+            let resp = try await client.userSubcount()
+            let artistCount = resp.body["artistCount"] as? Int ?? 0
+            let albumCount = resp.body["subPlaylistCount"] as? Int ?? 0
+            let djCount = resp.body["djRadioCount"] as? Int ?? 0
+            accountInfoText = "收藏歌手: \(artistCount) | 歌单: \(albumCount) | 电台: \(djCount)"
+            print("[NCMDemo] ✅ 订阅数量")
+        } catch {
+            accountInfoText = "获取订阅数量失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 订阅数量失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchUserRecord() async {
+        guard let uid = Int(userIdInput) else { return }
+        isLoading = true
+        userRecordSongs = []
+        do {
+            let resp = try await client.userRecord(uid: uid, type: .weekly)
+            if let weekData = resp.body["weekData"] as? [[String: Any]] {
+                userRecordSongs = weekData
+                print("[NCMDemo] ✅ 听歌记录 \(weekData.count) 首")
+            } else if let allData = resp.body["allData"] as? [[String: Any]] {
+                userRecordSongs = allData
+                print("[NCMDemo] ✅ 听歌记录 \(allData.count) 首")
+            }
+        } catch {
+            errorMessage = "获取听歌记录失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 听歌记录失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    // MARK: - 推荐
+
+    func fetchPersonalized() async {
+        isLoading = true
+        do {
+            let resp = try await client.personalized(limit: 20)
+            if let result = resp.body["result"] as? [[String: Any]] {
+                personalizedPlaylists = result
+                print("[NCMDemo] ✅ 推荐歌单 \(result.count)")
+            }
+        } catch {
+            errorMessage = "获取推荐歌单失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 推荐歌单失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchPersonalizedNewsong() async {
+        isLoading = true
+        do {
+            let resp = try await client.personalizedNewsong(limit: 20)
+            if let result = resp.body["result"] as? [[String: Any]] {
+                personalizedSongs = result
+                print("[NCMDemo] ✅ 推荐新歌 \(result.count)")
+            } else if let data = resp.body["data"] as? [[String: Any]] {
+                personalizedSongs = data
+                print("[NCMDemo] ✅ 推荐新歌 \(data.count)")
+            }
+        } catch {
+            errorMessage = "获取推荐新歌失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 推荐新歌失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchDailyRecommendSongs() async {
+        isLoading = true
+        do {
+            let resp = try await client.recommendSongs()
+            if let data = resp.body["data"] as? [String: Any],
+               let songs = data["dailySongs"] as? [[String: Any]] {
+                dailyRecommendSongs = songs
+                print("[NCMDemo] ✅ 每日推荐 \(songs.count) 首")
+            }
+        } catch {
+            errorMessage = "获取每日推荐失败（需登录）: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 每日推荐失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchDailyRecommendResource() async {
+        isLoading = true
+        do {
+            let resp = try await client.recommendResource()
+            if let recommend = resp.body["recommend"] as? [[String: Any]] {
+                personalizedPlaylists = recommend
+                print("[NCMDemo] ✅ 每日推荐歌单 \(recommend.count)")
+            }
+        } catch {
+            errorMessage = "获取每日推荐歌单失败（需登录）: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 每日推荐歌单失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchPersonalFm() async {
+        isLoading = true
+        do {
+            let resp = try await client.personalFm()
+            if let data = resp.body["data"] as? [[String: Any]] {
+                personalFmSongs = data
+                print("[NCMDemo] ✅ 私人 FM \(data.count) 首")
+            }
+        } catch {
+            errorMessage = "获取私人 FM 失败（需登录）: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 私人 FM 失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    // MARK: - 云盘
+
+    func fetchUserCloud() async {
+        isLoading = true
+        do {
+            let resp = try await client.userCloud(limit: 50)
+            if let data = resp.body["data"] as? [[String: Any]] {
+                cloudSongs = data
+                cloudSongCount = resp.body["count"] as? Int ?? data.count
+                print("[NCMDemo] ✅ 云盘歌曲 \(data.count) / \(cloudSongCount)")
+            }
+        } catch {
+            errorMessage = "获取云盘失败（需登录）: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 云盘失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    // MARK: - VIP / 云贝
+
+    func fetchVipInfo() async {
+        isLoading = true
+        do {
+            let resp = try await client.vipInfo()
+            if let data = resp.body["data"] as? [String: Any] {
+                let isVip = data["redVipLevel"] as? Int ?? 0
+                let expireTime = data["redVipExpireTime"] as? Int ?? 0
+                vipInfoText = "VIP 等级: \(isVip) | 到期: \(DemoViewModel.formatTimestamp(expireTime))"
+                print("[NCMDemo] ✅ VIP 信息")
+            } else {
+                vipInfoText = "未获取到 VIP 信息"
+            }
+        } catch {
+            vipInfoText = "获取 VIP 信息失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ VIP 信息失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchVipGrowthpoint() async {
+        isLoading = true
+        do {
+            let resp = try await client.vipGrowthpoint()
+            if let data = resp.body["data"] as? [String: Any] {
+                let point = data["growthPoint"] as? Int ?? 0
+                vipGrowthText = "当前成长值: \(point)"
+                print("[NCMDemo] ✅ 成长值: \(point)")
+            }
+        } catch {
+            vipGrowthText = "获取成长值失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 成长值失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchVipTasks() async {
+        isLoading = true
+        do {
+            let resp = try await client.vipTasks()
+            if let data = resp.body["data"] as? [String: Any],
+               let tasks = data["taskList"] as? [[String: Any]] {
+                vipTaskList = tasks
+                print("[NCMDemo] ✅ VIP 任务 \(tasks.count)")
+            } else if let data = resp.body["data"] as? [[String: Any]] {
+                vipTaskList = data
+            }
+        } catch {
+            errorMessage = "获取 VIP 任务失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ VIP 任务失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchYunbeiInfo() async {
+        isLoading = true
+        do {
+            let resp = try await client.yunbei()
+            let point = resp.body["point"] as? Int ?? 0
+            yunbeiInfoText = "云贝余额: \(point)"
+            print("[NCMDemo] ✅ 云贝: \(point)")
+        } catch {
+            yunbeiInfoText = "获取云贝失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 云贝失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchYunbeiTasks() async {
+        isLoading = true
+        do {
+            let resp = try await client.yunbeiTasks()
+            if let data = resp.body["data"] as? [[String: Any]] {
+                yunbeiTaskList = data
+                print("[NCMDemo] ✅ 云贝任务 \(data.count)")
+            }
+        } catch {
+            errorMessage = "获取云贝任务失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 云贝任务失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    // MARK: - 杂项
+
+    func fetchStyleList() async {
+        isLoading = true
+        do {
+            let resp = try await client.styleList()
+            if let data = resp.body["data"] as? [[String: Any]] {
+                styleListData = data
+                print("[NCMDemo] ✅ 曲风列表 \(data.count)")
+            } else if let tags = resp.body["tags"] as? [[String: Any]] {
+                styleListData = tags
+                print("[NCMDemo] ✅ 曲风列表 \(tags.count)")
+            }
+        } catch {
+            errorMessage = "获取曲风列表失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 曲风列表失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchHomepage() async {
+        isLoading = true
+        do {
+            let resp = try await client.homepageBlockPage()
+            if let data = resp.body["data"] as? [String: Any],
+               let blocks = data["blocks"] as? [[String: Any]] {
+                homepageInfo = "首页 Block: \(blocks.count) 个模块"
+                print("[NCMDemo] ✅ 首页 \(blocks.count) 个模块")
+            }
+        } catch {
+            homepageInfo = "获取首页失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 首页失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchDragonBall() async {
+        isLoading = true
+        do {
+            let resp = try await client.homepageDragonBall()
+            if let data = resp.body["data"] as? [[String: Any]] {
+                homepageInfo = "入口图标: \(data.count) 个"
+                print("[NCMDemo] ✅ 入口图标 \(data.count)")
+            }
+        } catch {
+            homepageInfo = "获取入口图标失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 入口图标失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchSigninProgress() async {
+        isLoading = true
+        do {
+            let resp = try await client.signinProgress()
+            if let data = resp.body["data"] as? [String: Any] {
+                let todaySigned = data["todaySignedIn"] as? Bool ?? false
+                signinInfo = "今日签到: \(todaySigned ? "已签到 ✅" : "未签到")"
+                print("[NCMDemo] ✅ 签到进度")
+            }
+        } catch {
+            signinInfo = "获取签到进度失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 签到进度失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchCountriesCode() async {
+        isLoading = true
+        do {
+            let resp = try await client.countriesCodeList()
+            if let data = resp.body["data"] as? [[String: Any]] {
+                countriesCodeCount = data.count
+                print("[NCMDemo] ✅ 国家编码 \(data.count)")
+            } else if let countryList = resp.body["countryList"] as? [[String: Any]] {
+                var total = 0
+                for group in countryList {
+                    if let list = group["countryList"] as? [[String: Any]] {
+                        total += list.count
+                    }
+                }
+                countriesCodeCount = total
+                print("[NCMDemo] ✅ 国家编码 \(total)")
+            }
+        } catch {
+            errorMessage = "获取国家编码失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 国家编码失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchRecentListenList() async {
+        isLoading = true
+        do {
+            let resp = try await client.recentListenList()
+            if let data = resp.body["data"] as? [String: Any],
+               let list = data["list"] as? [[String: Any]] {
+                recentListenInfo = "最近听歌: \(list.count) 首"
+                print("[NCMDemo] ✅ 最近听歌 \(list.count)")
+            }
+        } catch {
+            recentListenInfo = "获取失败（需登录）: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 最近听歌失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchSimiSong() async {
+        guard let id = Int(simiSongIdInput) else { return }
+        isLoading = true
+        simiResults = []
+        do {
+            let resp = try await client.simiSong(id: id)
+            if let songs = resp.body["songs"] as? [[String: Any]] {
+                simiResults = songs
+                print("[NCMDemo] ✅ 相似歌曲 \(songs.count)")
+            }
+        } catch {
+            errorMessage = "获取相似歌曲失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 相似歌曲失败: \(error)")
+        }
+        isLoading = false
+    }
+
+    func fetchSimiPlaylist() async {
+        guard let id = Int(simiSongIdInput) else { return }
+        isLoading = true
+        simiResults = []
+        do {
+            let resp = try await client.simiPlaylist(id: id)
+            if let playlists = resp.body["playlists"] as? [[String: Any]] {
+                simiResults = playlists
+                print("[NCMDemo] ✅ 相似歌单 \(playlists.count)")
+            }
+        } catch {
+            errorMessage = "获取相似歌单失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 相似歌单失败: \(error)")
+        }
+        isLoading = false
+    }
+
     // MARK: - 辅助方法
 
     static func artistNames(from song: [String: Any]) -> String {
@@ -567,5 +1615,14 @@ class DemoViewModel: ObservableObject {
             return album["name"] as? String ?? ""
         }
         return ""
+    }
+
+    /// 格式化时间戳为可读字符串
+    static func formatTimestamp(_ ms: Int) -> String {
+        guard ms > 0 else { return "" }
+        let date = Date(timeIntervalSince1970: Double(ms) / 1000.0)
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter.string(from: date)
     }
 }
