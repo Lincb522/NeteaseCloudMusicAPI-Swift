@@ -143,7 +143,12 @@ public class NCMClient {
         #if DEBUG
         print("[NCM] ➡️ PROXY POST \(urlString)")
         print("[NCM]    原始路径: \(uri)")
-        print("[NCM]    参数: \(adaptedData.keys.sorted().joined(separator: ", "))")
+        let paramSummary = adaptedData.map { k, v in
+            let vs = "\(v)"
+            let preview = vs.count > 60 ? String(vs.prefix(60)) + "..." : vs
+            return "\(k)=\(preview)"
+        }.sorted().joined(separator: ", ")
+        print("[NCM]    参数: \(paramSummary)")
         #endif
 
         guard let url = URL(string: urlString) else {
@@ -152,7 +157,8 @@ public class NCMClient {
 
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
-        urlRequest.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
+        // 使用 URL-encoded 格式，兼容性更好（旧版后端 express.urlencoded 解析）
+        urlRequest.setValue("application/x-www-form-urlencoded; charset=utf-8", forHTTPHeaderField: "Content-Type")
 
         // 附带 Cookie
         let cookieHeader = requestClient.sessionManager.buildCookieHeader(for: uri, crypto: .eapi)
@@ -163,9 +169,16 @@ public class NCMClient {
             #endif
         }
 
-        // JSON 编码请求体
-        let jsonData = try JSONSerialization.data(withJSONObject: adaptedData)
-        urlRequest.httpBody = jsonData
+        // URL-encoded 编码请求体（使用严格的 form 编码字符集）
+        var formAllowed = CharacterSet.urlQueryAllowed
+        // form-urlencoded 中 +、=、& 等必须编码
+        formAllowed.remove(charactersIn: "+&=")
+        let formBody = adaptedData.map { key, value in
+            let k = "\(key)".addingPercentEncoding(withAllowedCharacters: formAllowed) ?? "\(key)"
+            let v = "\(value)".addingPercentEncoding(withAllowedCharacters: formAllowed) ?? "\(value)"
+            return "\(k)=\(v)"
+        }.joined(separator: "&")
+        urlRequest.httpBody = formBody.data(using: .utf8)
 
         let (responseData, response) = try await URLSession.shared.data(for: urlRequest)
         let httpResponse = response as? HTTPURLResponse
