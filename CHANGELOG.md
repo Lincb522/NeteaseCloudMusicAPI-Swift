@@ -5,7 +5,8 @@
 ### 修复
 - 后端代理请求格式：Content-Type 从 `application/json` 改为 `application/x-www-form-urlencoded`，兼容性更好
 - URL-encoded 编码使用严格字符集，正确编码 `+`、`=`、`&` 等特殊字符
-- DEBUG 日志增强：打印参数实际值（截断到 60 字符），方便排查二维码登录等问题
+- Banner 参数适配：`clientType` 字符串自动转换为后端期望的 `type` 数字（0=pc, 1=android, 2=iphone, 3=ipad）
+- DEBUG 日志增强：打印参数实际值（截断到 60 字符），方便排查问题
 
 ---
 
