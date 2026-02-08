@@ -1,5 +1,13 @@
 # 更新日志
 
+## 1.3.2 (2026-02-08)
+
+### 修复
+- 搜索预建议不弹出：`/api/search/suggest/mobile` 经动态路由匹配后 `type`（mobile）丢失，后端 `search_suggest.js` 收不到 `type` 参数
+- 搜索预建议参数：SDK 传 `s`，后端期望 `keywords`，新增 `adaptParams` 转换
+
+---
+
 ## 1.3.1 (2026-02-08)
 
 ### 修复

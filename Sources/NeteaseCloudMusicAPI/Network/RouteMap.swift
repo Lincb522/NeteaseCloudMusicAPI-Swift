@@ -480,8 +480,8 @@ enum RouteMap {
         ("/api/resource/like", "/resource/like", nil),
         ("/api/resource/unlike", "/resource/like", nil),
 
-        // 搜索建议（带类型参数）
-        ("/api/search/suggest/", "/search/suggest", nil),
+        // 搜索建议（带类型参数）— 提取 type（如 mobile）
+        ("/api/search/suggest/", "/search/suggest", "type"),
     ]
 
     // MARK: - 参数转换
@@ -552,6 +552,12 @@ enum RouteMap {
 
         // cloudsearch: SDK 传 s=关键词, 后端期望 keywords=关键词
         case "/api/cloudsearch/pc", "/api/search/get", "/api/search/voice/get":
+            if let s = data["s"] as? String {
+                result["keywords"] = s
+            }
+
+        // search_suggest: SDK 传 s, 后端期望 keywords
+        case let path where path.hasPrefix("/api/search/suggest/"):
             if let s = data["s"] as? String {
                 result["keywords"] = s
             }
