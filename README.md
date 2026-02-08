@@ -62,6 +62,7 @@ cd Example && open NCMDemo.xcodeproj
 ## 致谢
 
 - [Binaryify/NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) — 核心参考
+- [NeteaseCloudMusicApiEnhanced/api-enhanced](https://github.com/neteasecloudmusicapienhanced/api-enhanced) — 增强版社区维护
 - [UnblockNeteaseMusic](https://github.com/UnblockNeteaseMusic/server) — 解灰功能参考
 - [darknessomi/musicbox](https://github.com/darknessomi/musicbox) — 加密算法参考
 
