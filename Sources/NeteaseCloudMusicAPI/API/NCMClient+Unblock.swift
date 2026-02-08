@@ -367,7 +367,7 @@ public class JSScriptSource: NCMUnblockSource {
             }
             let onRejected: @convention(block) (JSValue) -> Void = { value in
                 let errMsg = value.toString() ?? "未知错误"
-                continuation.resume(throwing: NCMError.serverError(code: -1, message: errMsg))
+                continuation.resume(throwing: NCMError.networkError(statusCode: -1, message: errMsg))
             }
 
             let fulfillBlock = JSValue(object: onFulfilled, in: context)
