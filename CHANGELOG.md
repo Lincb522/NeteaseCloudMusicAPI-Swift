@@ -9,6 +9,10 @@
 - 解灰成功后在响应中标记 `_unblocked` 和 `_unblockedFrom`，方便调用方判断
 - 检测条件：无 URL、试听限制（freeTrialInfo）、VIP/付费歌曲（fee=1/4）
 
+### 修复
+- 动态路由路径参数丢失：user/detail、album、artists 等接口经过动态路由匹配后 ID/UID 从路径中被丢弃，后端返回 400 参数错误
+- dynamicRoutes 新增 paramName 字段，adaptParams 统一从路径尾部提取参数注入请求体
+
 ---
 
 ## 1.2.1 (2026-02-08)
