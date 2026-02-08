@@ -410,100 +410,85 @@ enum RouteMap {
 
     /// 动态路由匹配规则
     /// 用于处理路径中包含动态参数的情况（如用户 ID、专辑 ID 等）
-    /// 格式: (前缀, 后端路由)
-    /// 匹配逻辑: 如果 API 路径以前缀开头，则映射到对应的后端路由
-    private static let dynamicRoutes: [(prefix: String, route: String)] = [
-        // /api/v1/album/{id} → /album
-        ("/api/v1/album/", "/album"),
-        // /api/v1/artist/{id} → /artists
-        ("/api/v1/artist/", "/artists"),
-        // /api/artist/albums/{id} → /artist/album
-        ("/api/artist/albums/", "/artist/album"),
-        // /api/v1/user/detail/{uid} → /user/detail
-        ("/api/v1/user/detail/", "/user/detail"),
-        // /api/w/v1/user/detail/{uid} → /user/detail/new
-        ("/api/w/v1/user/detail/", "/user/detail/new"),
-        // /api/user/getfollows/{uid} → /user/follows
-        ("/api/user/getfollows/", "/user/follows"),
-        // /api/user/getfolloweds/{uid} → /user/followeds
-        ("/api/user/getfolloweds/", "/user/followeds"),
-        // /api/v1/user/bindings/{uid} → /user/binding
-        ("/api/v1/user/bindings/", "/user/binding"),
-        // /api/v1/user/comments/{uid} → /msg/comments
-        ("/api/v1/user/comments/", "/msg/comments"),
-        // /api/event/get/{uid} → /user/event
-        ("/api/event/get/", "/user/event"),
-        // /api/dj/program/{uid} → /user/dj
-        ("/api/dj/program/", "/user/dj"),
-        // /api/feealbum/songsaleboard/{type}/type → /album/songsaleboard
-        ("/api/feealbum/songsaleboard/", "/album/songsaleboard"),
-        // /api/activity/summary/annual/ → /summary/annual
-        ("/api/activity/summary/annual/", "/summary/annual"),
+    /// 格式: (前缀, 后端路由, 参数名)
+    /// 匹配逻辑: 如果 API 路径以前缀开头，则映射到对应的后端路由，
+    /// 并将前缀之后的路径部分作为指定参数名注入到请求参数中
+    private static let dynamicRoutes: [(prefix: String, route: String, paramName: String?)] = [
+        // /api/v1/album/{id} → /album, 提取 id
+        ("/api/v1/album/", "/album", "id"),
+        // /api/v1/artist/{id} → /artists, 提取 id
+        ("/api/v1/artist/", "/artists", "id"),
+        // /api/artist/albums/{id} → /artist/album, 提取 id
+        ("/api/artist/albums/", "/artist/album", "id"),
+        // /api/v1/user/detail/{uid} → /user/detail, 提取 uid
+        ("/api/v1/user/detail/", "/user/detail", "uid"),
+        // /api/w/v1/user/detail/{uid} → /user/detail/new, 提取 uid
+        ("/api/w/v1/user/detail/", "/user/detail/new", "uid"),
+        // /api/user/getfollows/{uid} → /user/follows, 提取 uid
+        ("/api/user/getfollows/", "/user/follows", "uid"),
+        // /api/user/getfolloweds/{uid} → /user/followeds, 提取 uid
+        ("/api/user/getfolloweds/", "/user/followeds", "uid"),
+        // /api/v1/user/bindings/{uid} → /user/binding, 提取 uid
+        ("/api/v1/user/bindings/", "/user/binding", "uid"),
+        // /api/v1/user/comments/{uid} → /msg/comments, 提取 uid
+        ("/api/v1/user/comments/", "/msg/comments", "uid"),
+        // /api/event/get/{uid} → /user/event, 提取 uid
+        ("/api/event/get/", "/user/event", "uid"),
+        // /api/dj/program/{uid} → /user/dj, 提取 uid
+        ("/api/dj/program/", "/user/dj", "uid"),
+        // /api/feealbum/songsaleboard/{type}/type → /album/songsaleboard, 提取 type
+        ("/api/feealbum/songsaleboard/", "/album/songsaleboard", "type"),
+        // /api/activity/summary/annual/ → /summary/annual, 提取 year
+        ("/api/activity/summary/annual/", "/summary/annual", "year"),
 
-        // 订阅/取消订阅操作（sub/unsub）
-        // /api/album/{sub|unsub} → /album/sub
-        ("/api/album/sub", "/album/sub"),
-        ("/api/album/unsub", "/album/sub"),
-        // /api/artist/{sub|unsub} → /artist/sub
-        ("/api/artist/sub", "/artist/sub"),
-        ("/api/artist/unsub", "/artist/sub"),
-        // /api/djradio/{sub|unsub} → /dj/sub
-        ("/api/djradio/sub", "/dj/sub"),
-        ("/api/djradio/unsub", "/dj/sub"),
-        // /api/mv/{sub|unsub} → /mv/sub
-        ("/api/mv/sub", "/mv/sub"),
-        ("/api/mv/unsub", "/mv/sub"),
-        // /api/cloudvideo/video/{sub|unsub} → /video/sub
-        ("/api/cloudvideo/video/sub", "/video/sub"),
-        ("/api/cloudvideo/video/unsub", "/video/sub"),
-        // /api/playlist/{subscribe|unsubscribe} → /playlist/subscribe
-        ("/api/playlist/subscribe", "/playlist/subscribe"),
-        ("/api/playlist/unsubscribe", "/playlist/subscribe"),
+        // 订阅/取消订阅操作（sub/unsub）— 无需提取路径参数
+        ("/api/album/sub", "/album/sub", nil),
+        ("/api/album/unsub", "/album/sub", nil),
+        ("/api/artist/sub", "/artist/sub", nil),
+        ("/api/artist/unsub", "/artist/sub", nil),
+        ("/api/djradio/sub", "/dj/sub", nil),
+        ("/api/djradio/unsub", "/dj/sub", nil),
+        ("/api/mv/sub", "/mv/sub", nil),
+        ("/api/mv/unsub", "/mv/sub", nil),
+        ("/api/cloudvideo/video/sub", "/video/sub", nil),
+        ("/api/cloudvideo/video/unsub", "/video/sub", nil),
+        ("/api/playlist/subscribe", "/playlist/subscribe", nil),
+        ("/api/playlist/unsubscribe", "/playlist/subscribe", nil),
 
-        // 关注/取消关注
-        // /api/user/{follow|delfollow}/{id} → /follow
-        ("/api/user/follow/", "/follow"),
-        ("/api/user/delfollow/", "/follow"),
+        // 关注/取消关注 — /api/user/follow/{id}, 提取 id
+        ("/api/user/follow/", "/follow", "id"),
+        ("/api/user/delfollow/", "/follow", "id"),
 
-        // 评论相关
-        // /api/v1/resource/comments/R_SO_4_{id} → /comment/music
-        ("/api/v1/resource/comments/R_SO_4_", "/comment/music"),
-        // /api/v1/resource/comments/A_PL_0_{id} → /comment/playlist
-        ("/api/v1/resource/comments/A_PL_0_", "/comment/playlist"),
-        // /api/v1/resource/comments/R_AL_3_{id} → /comment/album
-        ("/api/v1/resource/comments/R_AL_3_", "/comment/album"),
-        // /api/v1/resource/comments/R_MV_5_{id} → /comment/mv
-        ("/api/v1/resource/comments/R_MV_5_", "/comment/mv"),
-        // /api/v1/resource/comments/A_DJ_1_{id} → /comment/dj
-        ("/api/v1/resource/comments/A_DJ_1_", "/comment/dj"),
-        // /api/v1/resource/comments/R_VI_62_{id} → /comment/video
-        ("/api/v1/resource/comments/R_VI_62_", "/comment/video"),
-        // /api/v1/resource/comments/{threadId} → /comment/event
-        ("/api/v1/resource/comments/", "/comment/event"),
-        // /api/v1/resource/hotcomments/{threadId} → /comment/hot
-        ("/api/v1/resource/hotcomments/", "/comment/hot"),
-        // /api/v1/comment/{like|unlike} → /comment/like
-        ("/api/v1/comment/like", "/comment/like"),
-        ("/api/v1/comment/unlike", "/comment/like"),
-        // /api/resource/comments/{add|delete|reply} → /comment
-        ("/api/resource/comments/add", "/comment"),
-        ("/api/resource/comments/delete", "/comment"),
-        ("/api/resource/comments/reply", "/comment"),
+        // 评论相关 — 提取 id
+        ("/api/v1/resource/comments/R_SO_4_", "/comment/music", "id"),
+        ("/api/v1/resource/comments/A_PL_0_", "/comment/playlist", "id"),
+        ("/api/v1/resource/comments/R_AL_3_", "/comment/album", "id"),
+        ("/api/v1/resource/comments/R_MV_5_", "/comment/mv", "id"),
+        ("/api/v1/resource/comments/A_DJ_1_", "/comment/dj", "id"),
+        ("/api/v1/resource/comments/R_VI_62_", "/comment/video", "id"),
+        ("/api/v1/resource/comments/", "/comment/event", "id"),
+        ("/api/v1/resource/hotcomments/", "/comment/hot", "id"),
+        // /api/v1/comment/{like|unlike} — 无需提取
+        ("/api/v1/comment/like", "/comment/like", nil),
+        ("/api/v1/comment/unlike", "/comment/like", nil),
+        // /api/resource/comments/{add|delete|reply} — 无需提取
+        ("/api/resource/comments/add", "/comment", nil),
+        ("/api/resource/comments/delete", "/comment", nil),
+        ("/api/resource/comments/reply", "/comment", nil),
 
-        // 点赞
-        // /api/resource/{like|unlike} → /resource/like
-        ("/api/resource/like", "/resource/like"),
-        ("/api/resource/unlike", "/resource/like"),
+        // 点赞 — 无需提取
+        ("/api/resource/like", "/resource/like", nil),
+        ("/api/resource/unlike", "/resource/like", nil),
 
         // 搜索建议（带类型参数）
-        // /api/search/suggest/{type} → /search/suggest
-        ("/api/search/suggest/", "/search/suggest"),
+        ("/api/search/suggest/", "/search/suggest", nil),
     ]
 
     // MARK: - 参数转换
 
     /// 将 SDK 内部参数（网易云 API 格式）转换为旧版 Node 后端模块期望的参数格式
     /// 大部分接口参数兼容，只有少数需要转换
+    /// 同时处理动态路由中路径参数的提取（如 /api/v1/user/detail/{uid} 中的 uid）
     /// - Parameters:
     ///   - apiPath: 网易云原始 API 路径
     ///   - data: SDK 构建的原始参数
@@ -511,19 +496,31 @@ enum RouteMap {
     static func adaptParams(_ apiPath: String, _ data: [String: Any]) -> [String: Any] {
         var result = data
 
-        switch apiPath {
-        // banner: SDK 传 clientType="iphone", 后端期望 type=2（数字）
-        case "/api/v2/banner/get":
-            if let clientType = data["clientType"] as? String {
-                let typeMap = ["pc": "0", "android": "1", "iphone": "2", "ipad": "3"]
-                result["type"] = typeMap[clientType] ?? "0"
-                result.removeValue(forKey: "clientType")
+        // 1. 动态路由路径参数提取
+        //    如果 apiPath 匹配某个动态路由前缀，且该规则定义了 paramName，
+        //    则从路径尾部提取值注入到参数中
+        for rule in dynamicRoutes {
+            guard let paramName = rule.paramName, apiPath.hasPrefix(rule.prefix) else { continue }
+            let tail = String(apiPath.dropFirst(rule.prefix.count))
+            if !tail.isEmpty {
+                // 取第一段（处理 /api/activity/summary/annual/2023/data 这种多段情况）
+                let value = tail.split(separator: "/").first.map(String.init) ?? tail
+                if result[paramName] == nil {
+                    result[paramName] = value
+                    #if DEBUG
+                    print("[NCM] 路径参数提取: \(paramName)=\(value) (from \(apiPath))")
+                    #endif
+                }
             }
+            break
+        }
+
+        // 2. 特定接口参数转换
+        switch apiPath {
 
         // song_url_v1: SDK 传 ids="[123]", 后端期望 id=123
         case "/api/song/enhance/player/url/v1":
             if let ids = data["ids"] as? String {
-                // 从 "[123,456]" 提取第一个 ID
                 let cleaned = ids.replacingOccurrences(of: "[", with: "")
                     .replacingOccurrences(of: "]", with: "")
                 let firstId = cleaned.split(separator: ",").first.map(String.init) ?? cleaned
@@ -533,7 +530,6 @@ enum RouteMap {
         // song_url: SDK 传 ids="[\"123\"]" + br, 后端期望 id="123,456" + br
         case "/api/song/enhance/player/url":
             if let ids = data["ids"] as? String {
-                // 从 JSON 数组字符串提取 ID 列表
                 if let jsonData = ids.data(using: .utf8),
                    let arr = try? JSONSerialization.jsonObject(with: jsonData) as? [String] {
                     result["id"] = arr.joined(separator: ",")
