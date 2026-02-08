@@ -120,7 +120,7 @@ public class NCMClient {
     }
 
     /// 后端代理模式请求
-    /// 将 `/api/xxx/yyy` 转为 Node 后端路由 `/xxx/yyy`，POST 明文参数
+    /// 使用路由映射表将网易云原始 API 路径转换为旧版 Node 后端路由，POST 明文参数
     /// - Parameters:
     ///   - serverUrl: 后端服务地址
     ///   - uri: 原始 API 路径
@@ -133,8 +133,8 @@ public class NCMClient {
     ) async throws -> APIResponse {
         let start = CFAbsoluteTimeGetCurrent()
 
-        // 将 /api/xxx/yyy 转为 Node 后端路由格式
-        let route = NCMClient.apiPathToRoute(uri)
+        // 使用路由映射表转换路径
+        let route = RouteMap.resolve(uri)
         let base = serverUrl.hasSuffix("/") ? String(serverUrl.dropLast()) : serverUrl
         let urlString = base + route
 
