@@ -512,6 +512,14 @@ enum RouteMap {
         var result = data
 
         switch apiPath {
+        // banner: SDK 传 clientType="iphone", 后端期望 type=2（数字）
+        case "/api/v2/banner/get":
+            if let clientType = data["clientType"] as? String {
+                let typeMap = ["pc": "0", "android": "1", "iphone": "2", "ipad": "3"]
+                result["type"] = typeMap[clientType] ?? "0"
+                result.removeValue(forKey: "clientType")
+            }
+
         // song_url_v1: SDK 传 ids="[123]", 后端期望 id=123
         case "/api/song/enhance/player/url/v1":
             if let ids = data["ids"] as? String {
