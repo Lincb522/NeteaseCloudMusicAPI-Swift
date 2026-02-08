@@ -1,5 +1,19 @@
 # 更新日志
 
+## 1.3.5 (2026-02-08)
+
+### 新功能
+- **JSScriptSource 日志回调**：新增 `logHandler` 属性，console.log、HTTP 请求地址、响应状态、JS 异常等内部信息可被外部捕获，不再只输出到控制台
+- **测试模式**：新增 `testMode` 属性，开启后 `matchLxFormat` 遍历所有平台（wy、kw、mg、qq 等）而非匹配到就返回
+- **平台结果收集**：新增 `testPlatformResults` 属性，测试模式下记录每个平台的成功/失败状态
+
+### 改进
+- `httpGet`（简单格式）和 `lxRequest`（洛雪格式）的 HTTP 请求地址、响应状态码均通过 `emitLog` 输出
+- JS 异常处理改为通过 `emitLog` 统一输出，外部可捕获
+- `matchLxFormat` 每个平台的匹配结果（成功/失败/错误）均通过 `emitLog` 输出
+
+---
+
 ## 1.3.4 (2026-02-08)
 
 ### 修复

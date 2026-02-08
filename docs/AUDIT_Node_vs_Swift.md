@@ -53,3 +53,7 @@ Swift 侧通过第三方解灰能力提供等价功能与扩展点：
 
 - Node 模块目录： [module](file:///Users/linchengbo/Downloads/api-enhanced-main%200201/module)
 - Swift API 目录： [Sources/NeteaseCloudMusicAPI/API](file:///Users/linchengbo/Downloads/api-enhanced-main%200201/Sources/NeteaseCloudMusicAPI/API)
+
+## 逐模块对比清单（按模块名）
+
+### 明细
