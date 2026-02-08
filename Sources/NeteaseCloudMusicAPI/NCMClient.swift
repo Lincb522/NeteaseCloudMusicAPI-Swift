@@ -135,13 +135,15 @@ public class NCMClient {
 
         // 使用路由映射表转换路径
         let route = RouteMap.resolve(uri)
+        // 适配后端模块期望的参数格式
+        let adaptedData = RouteMap.adaptParams(uri, data)
         let base = serverUrl.hasSuffix("/") ? String(serverUrl.dropLast()) : serverUrl
         let urlString = base + route
 
         #if DEBUG
         print("[NCM] ➡️ PROXY POST \(urlString)")
         print("[NCM]    原始路径: \(uri)")
-        print("[NCM]    参数: \(data.keys.sorted().joined(separator: ", "))")
+        print("[NCM]    参数: \(adaptedData.keys.sorted().joined(separator: ", "))")
         #endif
 
         guard let url = URL(string: urlString) else {
@@ -162,7 +164,7 @@ public class NCMClient {
         }
 
         // JSON 编码请求体
-        let jsonData = try JSONSerialization.data(withJSONObject: data)
+        let jsonData = try JSONSerialization.data(withJSONObject: adaptedData)
         urlRequest.httpBody = jsonData
 
         let (responseData, response) = try await URLSession.shared.data(for: urlRequest)

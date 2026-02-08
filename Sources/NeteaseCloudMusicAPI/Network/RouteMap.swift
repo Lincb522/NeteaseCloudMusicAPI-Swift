@@ -401,6 +401,8 @@ enum RouteMap {
         "/api/frontrisk/verify/qrcodestatus": "/verify/qrcodestatus",
         "/api/influencer/web/apply/threshold/detail/get": "/threshold/detail/get",
         "/api/user/creator/authinfo/get": "/creator/authinfo/get",
+        "/api/comment/user/comment/history": "/user/comment/history",
+        "/api/mcalendar/detail": "/calendar",
     ]
 
 
@@ -497,6 +499,71 @@ enum RouteMap {
         // /api/search/suggest/{type} → /search/suggest
         ("/api/search/suggest/", "/search/suggest"),
     ]
+
+    // MARK: - 参数转换
+
+    /// 将 SDK 内部参数（网易云 API 格式）转换为旧版 Node 后端模块期望的参数格式
+    /// 大部分接口参数兼容，只有少数需要转换
+    /// - Parameters:
+    ///   - apiPath: 网易云原始 API 路径
+    ///   - data: SDK 构建的原始参数
+    /// - Returns: 转换后的参数（适配后端模块的 query 格式）
+    static func adaptParams(_ apiPath: String, _ data: [String: Any]) -> [String: Any] {
+        var result = data
+
+        switch apiPath {
+        // song_url_v1: SDK 传 ids="[123]", 后端期望 id=123
+        case "/api/song/enhance/player/url/v1":
+            if let ids = data["ids"] as? String {
+                // 从 "[123,456]" 提取第一个 ID
+                let cleaned = ids.replacingOccurrences(of: "[", with: "")
+                    .replacingOccurrences(of: "]", with: "")
+                let firstId = cleaned.split(separator: ",").first.map(String.init) ?? cleaned
+                result["id"] = firstId
+            }
+
+        // song_url: SDK 传 ids="[\"123\"]" + br, 后端期望 id="123,456" + br
+        case "/api/song/enhance/player/url":
+            if let ids = data["ids"] as? String {
+                // 从 JSON 数组字符串提取 ID 列表
+                if let jsonData = ids.data(using: .utf8),
+                   let arr = try? JSONSerialization.jsonObject(with: jsonData) as? [String] {
+                    result["id"] = arr.joined(separator: ",")
+                } else {
+                    let cleaned = ids.replacingOccurrences(of: "[", with: "")
+                        .replacingOccurrences(of: "]", with: "")
+                        .replacingOccurrences(of: "\"", with: "")
+                    result["id"] = cleaned
+                }
+            }
+
+        // song_detail: SDK 传 c=JSON数组, 后端期望 ids="123,456"
+        case "/api/v3/song/detail":
+            if let c = data["c"] as? String,
+               let jsonData = c.data(using: .utf8),
+               let arr = try? JSONSerialization.jsonObject(with: jsonData) as? [[String: Any]] {
+                let ids = arr.compactMap { $0["id"] }.map { "\($0)" }
+                result["ids"] = ids.joined(separator: ",")
+            }
+
+        // cloudsearch: SDK 传 s=关键词, 后端期望 keywords=关键词
+        case "/api/cloudsearch/pc", "/api/search/get", "/api/search/voice/get":
+            if let s = data["s"] as? String {
+                result["keywords"] = s
+            }
+
+        // 评论相关: SDK 传 rid, 后端期望 id
+        case let path where path.hasPrefix("/api/v1/resource/comments/"):
+            if let rid = data["rid"] {
+                result["id"] = rid
+            }
+
+        default:
+            break
+        }
+
+        return result
+    }
 
     // MARK: - 路由查找
 

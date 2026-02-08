@@ -1,5 +1,19 @@
 # 更新日志
 
+## 1.2.0 (2026-02-08)
+
+### 新功能
+- 后端代理路由映射表：323 条静态路由 + 43 条动态前缀，100% 覆盖 SDK 全部 349 个 API 路径
+- 代理模式参数适配层：自动转换 song_url_v1、song_detail、cloudsearch 等接口的参数格式
+- 后端解灰音源 `ServerUnblockSource`：支持 match（unblockmusic-utils）、ncmget（GD 音乐台后端）、gdDirect（直连 GD 音乐台）三种模式
+- GD 音乐台默认地址硬编码，`ServerUnblockSource.gd()` 一行即用
+
+### 修复
+- 后端代理模式 404：旧版 NeteaseCloudMusicApi 路由格式与网易云原始 API 路径不匹配，新增 RouteMap 完整映射
+- 二维码登录 400：`/api/login/qrcode/unikey` 正确映射到后端 `/login/qr/key`
+
+---
+
 ## 1.1.0 (2026-02-08)
 
 ### 新功能

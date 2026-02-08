@@ -473,6 +473,127 @@ public struct CustomURLSource: NCMUnblockSource {
     }
 }
 
+// MARK: - 后端解灰音源
+
+/// 后端内置解灰音源
+/// 通过旧版 NeteaseCloudMusicApi 后端的解灰接口获取播放链接
+/// 支持两种模式：
+/// - `.match`: 调用 `/song/url/match`，使用 unblockmusic-utils 匹配多平台
+/// - `.ncmget`: 调用 `/song/url/ncmget`，使用 GD 音乐台 API
+public class ServerUnblockSource: NCMUnblockSource {
+
+    /// 后端解灰模式
+    public enum Mode: String {
+        /// 通过后端 /song/url/match，使用 unblockmusic-utils 多平台匹配
+        case match
+        /// 通过后端 /song/url/ncmget，使用 GD 音乐台 API
+        case ncmget
+        /// 直连 GD 音乐台 API（不需要后端）
+        case gdDirect
+    }
+
+    /// GD 音乐台默认 API 地址
+    public static let gdDefaultURL = "https://music-api.gdstudio.xyz/api.php"
+
+    public let name: String
+    public let sourceType: UnblockSourceType = .httpUrl
+    /// 后端服务地址（match/ncmget 模式需要，gdDirect 模式不需要）
+    public let serverUrl: String
+    /// 解灰模式
+    public let mode: Mode
+
+    /// 初始化后端解灰音源
+    /// - Parameters:
+    ///   - name: 音源名称（可选，自动根据模式生成）
+    ///   - serverUrl: 后端地址（gdDirect 模式可传空字符串）
+    ///   - mode: 解灰模式，默认 `.match`
+    public init(name: String? = nil, serverUrl: String = "", mode: Mode = .match) {
+        self.serverUrl = serverUrl
+        self.mode = mode
+        switch mode {
+        case .match:
+            self.name = name ?? "后端解灰(match)"
+        case .ncmget:
+            self.name = name ?? "后端解灰(GD)"
+        case .gdDirect:
+            self.name = name ?? "GD音乐台"
+        }
+    }
+
+    /// 便捷构造：直连 GD 音乐台（不需要后端）
+    public static func gd(name: String = "GD音乐台") -> ServerUnblockSource {
+        return ServerUnblockSource(name: name, serverUrl: "", mode: .gdDirect)
+    }
+
+    public func match(id: Int, title: String?, artist: String?, quality: String) async throws -> UnblockResult {
+        let urlStr: String
+
+        switch mode {
+        case .match:
+            let base = serverUrl.hasSuffix("/") ? String(serverUrl.dropLast()) : serverUrl
+            urlStr = "\(base)/song/url/match?id=\(id)"
+        case .ncmget:
+            let base = serverUrl.hasSuffix("/") ? String(serverUrl.dropLast()) : serverUrl
+            let br = quality.hasSuffix("000") ? String(quality.dropLast(3)) : quality
+            urlStr = "\(base)/song/url/ncmget?id=\(id)&br=\(br)"
+        case .gdDirect:
+            // 直连 GD 音乐台，不经过后端
+            let br = quality.hasSuffix("000") ? String(quality.dropLast(3)) : quality
+            urlStr = "\(ServerUnblockSource.gdDefaultURL)?types=url&id=\(id)&br=\(br)"
+        }
+
+        guard let url = URL(string: urlStr) else {
+            throw NCMError.invalidURL
+        }
+
+        #if DEBUG
+        print("[ServerUnblock] 请求: \(urlStr)")
+        #endif
+
+        let (data, response) = try await URLSession.shared.data(from: url)
+        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 200
+
+        guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            return UnblockResult(url: "", quality: quality, platform: name)
+        }
+
+        #if DEBUG
+        if let jsonStr = String(data: data, encoding: .utf8) {
+            print("[ServerUnblock] 响应(\(statusCode)): \(String(jsonStr.prefix(300)))")
+        }
+        #endif
+
+        // 解析返回的 URL
+        var resultUrl = ""
+        switch mode {
+        case .match:
+            // song_url_match 返回 {code: 200, data: "http://..."}
+            resultUrl = json["data"] as? String ?? ""
+        case .ncmget:
+            // song_url_ncmget 返回 {code: 200, data: {url: "http://..."}}
+            if let dataObj = json["data"] as? [String: Any] {
+                resultUrl = dataObj["url"] as? String ?? ""
+            }
+        case .gdDirect:
+            // GD 音乐台直连返回 {url: "http://..."}
+            resultUrl = json["url"] as? String ?? ""
+        }
+
+        // 检查是否有代理 URL
+        let proxyUrl = json["proxyUrl"] as? String
+            ?? (json["data"] as? [String: Any])?["proxyUrl"] as? String
+            ?? ""
+        let finalUrl = proxyUrl.isEmpty ? resultUrl : proxyUrl
+
+        return UnblockResult(
+            url: finalUrl,
+            quality: quality,
+            platform: name,
+            extra: json
+        )
+    }
+}
+
 // MARK: - 解灰管理器
 
 /// 第三方音源管理器
