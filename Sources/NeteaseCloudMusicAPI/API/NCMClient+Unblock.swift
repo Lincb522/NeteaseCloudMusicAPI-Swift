@@ -67,6 +67,22 @@ public class JSScriptSource: NCMUnblockSource {
     /// 洛雪格式：支持的音源列表
     public private(set) var lxSources: [String: Any] = [:]
 
+    /// 外部日志回调（设置后，console.log / HTTP 请求等信息会同时回调给外部）
+    /// 线程安全：回调可能在非主线程触发
+    public var logHandler: ((String) -> Void)?
+
+    /// 测试模式：开启后 matchLxFormat 会遍历所有平台而不是匹配到就返回
+    public var testMode: Bool = false
+
+    /// 测试模式下收集的各平台结果（key = 平台名，value = 是否成功）
+    public var testPlatformResults: [(platform: String, success: Bool)] = []
+
+    /// 内部日志方法，同时输出到控制台和外部回调
+    private func emitLog(_ message: String) {
+        print(message)
+        logHandler?(message)
+    }
+
     /// 从 JS 脚本内容初始化
     /// - Parameters:
     ///   - name: 音源名称（自动从脚本注释或 inited 事件中获取）
@@ -77,18 +93,21 @@ public class JSScriptSource: NCMUnblockSource {
         // 检测是否为洛雪插件格式
         self.isLxFormat = script.contains("globalThis.lx") || script.contains("EVENT_NAMES")
 
-        // 注入 console
-        let logHandler: @convention(block) (JSValue) -> Void = { msg in
-            print("[JSSource] \(msg)")
+        // 先赋临时名称，满足 Swift 存储属性初始化要求
+        self.name = name
+
+        // 注入 console（使用 weak self 回调外部日志）
+        let logCallback: @convention(block) (JSValue) -> Void = { [weak self] msg in
+            self?.emitLog("[JSSource] \(msg)")
         }
-        let groupHandler: @convention(block) (JSValue) -> Void = { msg in
-            print("[JSSource] ▸ \(msg)")
+        let groupCallback: @convention(block) (JSValue) -> Void = { [weak self] msg in
+            self?.emitLog("[JSSource] ▸ \(msg)")
         }
         let groupEndHandler: @convention(block) () -> Void = {
             // 忽略 groupEnd
         }
-        context.setObject(logHandler, forKeyedSubscript: "___log" as NSString)
-        context.setObject(groupHandler, forKeyedSubscript: "___group" as NSString)
+        context.setObject(logCallback, forKeyedSubscript: "___log" as NSString)
+        context.setObject(groupCallback, forKeyedSubscript: "___group" as NSString)
         context.setObject(groupEndHandler, forKeyedSubscript: "___groupEnd" as NSString)
         context.evaluateScript("""
             var console = {
@@ -101,7 +120,8 @@ public class JSScriptSource: NCMUnblockSource {
         """)
 
         // 注入同步 HTTP 请求（简单格式用）
-        let httpGet: @convention(block) (String) -> String = { urlStr in
+        let httpGet: @convention(block) (String) -> String = { [weak self] urlStr in
+            self?.emitLog("[JSSource] 🔗 HTTP GET: \(urlStr)")
             guard let url = URL(string: urlStr) else { return "" }
             let semaphore = DispatchSemaphore(value: 0)
             var result = ""
@@ -113,12 +133,10 @@ public class JSScriptSource: NCMUnblockSource {
             }
             task.resume()
             semaphore.wait()
+            self?.emitLog("[JSSource] 📥 响应长度: \(result.count) 字符")
             return result
         }
         context.setObject(httpGet, forKeyedSubscript: "httpGet" as NSString)
-
-        // 先赋临时名称，满足 Swift 存储属性初始化要求
-        self.name = name
 
         if isLxFormat {
             // 模拟洛雪运行环境
@@ -126,9 +144,9 @@ public class JSScriptSource: NCMUnblockSource {
         }
 
         // 异常处理
-        context.exceptionHandler = { _, exception in
+        context.exceptionHandler = { [weak self] _, exception in
             if let ex = exception {
-                print("[JSSource] ⚠️ JS 异常: \(ex)")
+                self?.emitLog("[JSSource] ⚠️ JS 异常: \(ex)")
             }
         }
 
@@ -172,7 +190,8 @@ public class JSScriptSource: NCMUnblockSource {
 
         // 注入同步 HTTP 请求（洛雪 request 格式）
         // request(url, options, callback) -> callback(err, resp)
-        let lxRequest: @convention(block) (String, JSValue, JSValue) -> Void = { urlStr, optionsVal, callback in
+        let lxRequest: @convention(block) (String, JSValue, JSValue) -> Void = { [weak self] urlStr, optionsVal, callback in
+            self?.emitLog("[JSSource] 🔗 LX Request: \(urlStr)")
             guard let url = URL(string: urlStr) else {
                 callback.call(withArguments: ["无效 URL", NSNull()])
                 return
@@ -213,8 +232,10 @@ public class JSScriptSource: NCMUnblockSource {
             semaphore.wait()
 
             if !(responseError is NSNull) {
+                self?.emitLog("[JSSource] ❌ 请求失败: \(responseError)")
                 callback.call(withArguments: [responseError, NSNull()])
             } else {
+                self?.emitLog("[JSSource] 📥 响应 \(statusCode)")
                 // 构造 resp 对象: { statusCode, body, headers }
                 let respObj: [String: Any] = [
                     "statusCode": statusCode,
@@ -338,7 +359,11 @@ public class JSScriptSource: NCMUnblockSource {
         let handler = self.lxRequestHandler!
         let sourceName = self.name
 
-        // 逐个源尝试，任一成功即返回
+        // 逐个源尝试
+        var firstSuccessResult: UnblockResult?
+        if testMode {
+            testPlatformResults.removeAll()
+        }
         for sourceKey in sourceKeys {
             do {
                 let result = try await matchLxFormatSingle(
@@ -353,18 +378,31 @@ public class JSScriptSource: NCMUnblockSource {
                     sourceName: sourceName
                 )
                 if !result.url.isEmpty {
-                    return result
+                    emitLog("[JSSource] [\(sourceName)] \(sourceKey) ✅ 匹配成功")
+                    if testMode {
+                        testPlatformResults.append((platform: sourceKey, success: true))
+                        if firstSuccessResult == nil {
+                            firstSuccessResult = result
+                        }
+                    } else {
+                        return result
+                    }
+                } else {
+                    emitLog("[JSSource] [\(sourceName)] \(sourceKey) ❌ 返回空 URL")
+                    if testMode {
+                        testPlatformResults.append((platform: sourceKey, success: false))
+                    }
                 }
             } catch {
-                #if DEBUG
-                print("[JSSource] [\(sourceName)] \(sourceKey) musicUrl 错误: \(error.localizedDescription)")
-                #endif
+                emitLog("[JSSource] [\(sourceName)] \(sourceKey) ❌ 错误: \(error.localizedDescription)")
+                if testMode {
+                    testPlatformResults.append((platform: sourceKey, success: false))
+                }
                 continue
             }
         }
 
-        // 所有源都失败
-        return UnblockResult(url: "", quality: quality, platform: sourceName)
+        return firstSuccessResult ?? UnblockResult(url: "", quality: quality, platform: sourceName)
     }
 
     /// 洛雪格式：对单个 sourceKey 发起请求
