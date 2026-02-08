@@ -37,7 +37,7 @@ let client = NCMClient()
 
 !> 网易云音乐的部分资源 URL（如歌曲播放链接 `http://m*.music.126.net`）使用 HTTP 协议。iOS 默认的 App Transport Security (ATS) 会阻止 HTTP 请求，导致播放失败。
 
-需要在 Info.plist 中添加 ATS 例外：
+如果仅使用网易云官方接口，可以按域名添加例外：
 
 ```xml
 <key>NSAppTransportSecurity</key>
@@ -56,6 +56,16 @@ let client = NCMClient()
 ```
 
 如果使用直连模式，还需要添加 `163.com` 域名的例外（直连请求走 `interface.music.163.com`，虽然是 HTTPS，但部分重定向可能涉及 HTTP）。
+
+!> 如果使用第三方解灰模块，由于导入的 JS 音源脚本可能请求任意 HTTP 域名（域名不可预知），建议直接允许所有 HTTP 请求：
+
+```xml
+<key>NSAppTransportSecurity</key>
+<dict>
+    <key>NSAllowsArbitraryLoads</key>
+    <true/>
+</dict>
+```
 
 ### 关于 Cookie
 
@@ -2913,6 +2923,8 @@ let result = try await client.plCount(...)
 ## 第三方解灰
 
 > 第三方解灰模块用于获取灰色（无版权）歌曲的可用播放链接。SDK 提供了基于协议的多音源架构，支持导入 JS 音源脚本文件和自定义 HTTP 地址两种方式，并可自定义扩展。
+
+!> 使用解灰模块时，导入的第三方 JS 音源可能请求任意 HTTP 域名。请确保在 Info.plist 中设置 `NSAllowsArbitraryLoads` 为 `true`，否则 iOS ATS 会拦截 HTTP 请求导致音源匹配失败。详见 [iOS ATS 注意事项](#ios-ats-注意事项)。
 
 ### 架构概览
 
