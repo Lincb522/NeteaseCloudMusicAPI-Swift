@@ -75,7 +75,6 @@ extension NCMClient {
         let quality: String
         switch level {
         case .standard: quality = "128"
-        case .higher: quality = "192"
         case .exhigh: quality = "320"
         case .lossless: quality = "flac"
         case .hires: quality = "999"
