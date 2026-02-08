@@ -1,8 +1,13 @@
 # 更新日志
 
-## 1.3.3 (2026-02-08)
+## 1.3.4 (2026-02-08)
 
 ### 修复
+- **JS 音源多源回退**：`matchLxFormat` 支持多 sourceKey 依次尝试（wy → QQ → 酷我 → 咪咕等），不再只试 `wy` 一个源就放弃
+- 修复 `musicInfo.source` 硬编码为 `'wy'` 的问题，现在正确传递当前尝试的 sourceKey
+- `lxSources` 改为 `public` 访问级别，供外部调试日志读取支持平台列表
+
+### 改进
 - 全量参数审计：修复 71 个后端代理模式下 SDK 参数名与后端期望参数名不匹配的问题
 - 涵盖 songId→id、userId→uid、artistId→id、trackId→id、cellphone→phone、threadId 解析等多种转换模式
 - 评论相关接口（comment_new/floor/hug_list/hug_comment）自动从 threadId 解析出 id + type

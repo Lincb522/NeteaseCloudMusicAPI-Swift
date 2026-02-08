@@ -65,7 +65,7 @@ public class JSScriptSource: NCMUnblockSource {
     /// 洛雪格式：注册的请求处理器
     private var lxRequestHandler: JSValue?
     /// 洛雪格式：支持的音源列表
-    private var lxSources: [String: Any] = [:]
+    public private(set) var lxSources: [String: Any] = [:]
 
     /// 从 JS 脚本内容初始化
     /// - Parameters:
