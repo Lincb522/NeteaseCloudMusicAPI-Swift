@@ -54,7 +54,7 @@ public struct UnblockResult {
 /// - 洛雪插件格式：依赖 globalThis.lx 事件系统，SDK 自动模拟运行环境
 /// - 简单函数格式：导出 getUrl(songId, quality) 函数
 public class JSScriptSource: NCMUnblockSource {
-    public let name: String
+    public private(set) var name: String
     public let sourceType: UnblockSourceType = .jsScript
     /// JS 脚本内容
     public let scriptContent: String
@@ -117,6 +117,9 @@ public class JSScriptSource: NCMUnblockSource {
         }
         context.setObject(httpGet, forKeyedSubscript: "httpGet" as NSString)
 
+        // 先赋临时名称，满足 Swift 存储属性初始化要求
+        self.name = name
+
         if isLxFormat {
             // 模拟洛雪运行环境
             self.setupLxEnvironment()
@@ -132,14 +135,13 @@ public class JSScriptSource: NCMUnblockSource {
         // 执行脚本
         context.evaluateScript(script)
 
-        // 获取音源名称
-        var resolvedName = name
+        // 获取音源名称（覆盖临时值）
         // 优先从脚本注释中提取 @name
         if let range = script.range(of: #"@name\s+(.+)"#, options: .regularExpression) {
             let matched = String(script[range])
             let nameValue = matched.replacingOccurrences(of: #"@name\s+"#, with: "", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines)
             if !nameValue.isEmpty {
-                resolvedName = nameValue
+                self.name = nameValue
             }
         }
         // 简单格式：尝试 getMusicInfo()
@@ -148,10 +150,9 @@ public class JSScriptSource: NCMUnblockSource {
                !info.isNull, !info.isUndefined,
                let dict = info.toDictionary(),
                let scriptName = dict["name"] as? String {
-                resolvedName = scriptName
+                self.name = scriptName
             }
         }
-        self.name = resolvedName
     }
 
     /// 从文件 URL 初始化
@@ -297,9 +298,9 @@ public class JSScriptSource: NCMUnblockSource {
         return UnblockResult(url: "", quality: quality, platform: name)
     }
 
-    /// 洛雪格式：通过事件系统调用 handleGetMusicUrl
+    /// 洛雪格式：通过事件系统调用
     private func matchLxFormat(id: Int, title: String?, artist: String?, quality: String) async throws -> UnblockResult {
-        guard let handler = lxRequestHandler else {
+        guard lxRequestHandler != nil else {
             throw NCMError.invalidURL
         }
 
@@ -329,61 +330,84 @@ public class JSScriptSource: NCMUnblockSource {
             }
         }
 
-        // 构造 musicInfo 对象
-        let musicInfoDict: [String: Any] = [
-            "songmid": id,
-            "hash": "\(id)",
-            "name": title ?? "",
-            "singer": artist ?? "",
-            "source": "wy"
-        ]
+        let songName = (title ?? "").replacingOccurrences(of: "'", with: "\\'").replacingOccurrences(of: "\n", with: "")
+        let artistName = (artist ?? "").replacingOccurrences(of: "'", with: "\\'").replacingOccurrences(of: "\n", with: "")
+        let ctx = self.context
+        let handler = self.lxRequestHandler!
+        let sourceName = self.name
 
-        // 构造请求参数
-        let requestInfo: [String: Any] = [
-            "type": lxQuality,
-            "musicInfo": musicInfoDict
-        ]
-
-        // 调用处理器，返回 Promise
-        guard let promise = handler.call(withArguments: [
-            ["action": "musicUrl", "source": sourceKey, "info": requestInfo]
-        ]) else {
-            return UnblockResult(url: "", quality: quality, platform: name)
-        }
-
-        // 等待 Promise 结果
+        // 在后台线程执行，避免主线程 semaphore 死锁
         return try await withCheckedThrowingContinuation { continuation in
-            let onFulfilled: @convention(block) (JSValue) -> Void = { [weak self] value in
-                let urlStr = value.toString() ?? ""
-                if !urlStr.isEmpty && urlStr != "undefined" && urlStr != "null" {
-                    continuation.resume(returning: UnblockResult(
-                        url: urlStr,
-                        quality: quality,
-                        platform: self?.name ?? "JS音源"
-                    ))
-                } else {
-                    continuation.resume(returning: UnblockResult(url: "", quality: quality, platform: self?.name ?? "JS音源"))
-                }
-            }
-            let onRejected: @convention(block) (JSValue) -> Void = { value in
-                let errMsg = value.toString() ?? "未知错误"
-                continuation.resume(throwing: NCMError.networkError(statusCode: -1, message: errMsg))
-            }
+            DispatchQueue.global(qos: .userInitiated).async {
+                var resolvedUrl: String?
+                var resolvedError: String?
+                let semaphore = DispatchSemaphore(value: 0)
 
-            let fulfillBlock = JSValue(object: onFulfilled, in: context)
-            let rejectBlock = JSValue(object: onRejected, in: context)
-
-            // promise.then(onFulfilled, onRejected)
-            if let then = promise.forProperty("then"), !then.isUndefined {
-                then.call(withArguments: [fulfillBlock as Any, rejectBlock as Any])
-            } else {
-                // 不是 Promise，直接当结果处理
-                let urlStr = promise.toString() ?? ""
-                if !urlStr.isEmpty && urlStr != "undefined" && urlStr != "null" {
-                    continuation.resume(returning: UnblockResult(url: urlStr, quality: quality, platform: name))
-                } else {
-                    continuation.resume(returning: UnblockResult(url: "", quality: quality, platform: name))
+                let onSuccess: @convention(block) (String) -> Void = { url in
+                    resolvedUrl = url
+                    semaphore.signal()
                 }
+                let onError: @convention(block) (String) -> Void = { err in
+                    resolvedError = err
+                    semaphore.signal()
+                }
+                ctx.setObject(onSuccess, forKeyedSubscript: "___onMatchSuccess" as NSString)
+                ctx.setObject(onError, forKeyedSubscript: "___onMatchError" as NSString)
+                ctx.setObject(handler, forKeyedSubscript: "___lxRequestHandler" as NSString)
+
+                let jsCall = """
+                (function() {
+                    try {
+                        var handler = ___lxRequestHandler;
+                        if (!handler) { ___onMatchError('no handler'); return; }
+                        var result = handler({
+                            action: 'musicUrl',
+                            source: '\(sourceKey)',
+                            info: {
+                                type: '\(lxQuality)',
+                                musicInfo: {
+                                    songmid: \(id),
+                                    hash: '\(id)',
+                                    name: '\(songName)',
+                                    singer: '\(artistName)',
+                                    source: 'wy'
+                                }
+                            }
+                        });
+                        if (result && typeof result.then === 'function') {
+                            result.then(function(url) {
+                                ___onMatchSuccess(String(url || ''));
+                            })['catch'](function(err) {
+                                ___onMatchError(String(err || 'unknown'));
+                            });
+                        } else {
+                            ___onMatchSuccess(String(result || ''));
+                        }
+                    } catch(e) {
+                        ___onMatchError(String(e));
+                    }
+                })();
+                """
+
+                ctx.evaluateScript(jsCall)
+
+                let waitResult = semaphore.wait(timeout: .now() + 30)
+
+                // 清理
+                ctx.evaluateScript("delete ___onMatchSuccess; delete ___onMatchError; delete ___lxRequestHandler;")
+
+                if waitResult == .timedOut {
+                    continuation.resume(returning: UnblockResult(url: "", quality: quality, platform: sourceName))
+                    return
+                }
+
+                if let error = resolvedError {
+                    continuation.resume(throwing: NCMError.networkError(statusCode: -1, message: error))
+                    return
+                }
+
+                let url = resolvedUrl ?? ""
+                continuation.resume(returning: UnblockResult(url: url, quality: quality, platform: sourceName))
             }
         }
     }
