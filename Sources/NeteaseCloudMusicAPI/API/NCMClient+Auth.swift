@@ -165,7 +165,7 @@ extension NCMClient {
         return try await request(
             "/api/w/nuser/account/get",
             data: [:],
-            crypto: .eapi
+            crypto: .weapi
         )
     }
 

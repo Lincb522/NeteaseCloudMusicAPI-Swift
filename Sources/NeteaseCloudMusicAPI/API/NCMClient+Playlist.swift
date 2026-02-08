@@ -171,15 +171,20 @@ extension NCMClient {
     /// - Parameters:
     ///   - id: 歌单 ID
     ///   - action: 操作类型（`.sub` 收藏，`.unsub` 取消收藏）
+    ///   - checkToken: 可选校验 token（部分场景需要）
     /// - Returns: API 响应
     public func playlistSubscribe(
         id: Int,
-        action: SubAction
+        action: SubAction,
+        checkToken: String? = nil
     ) async throws -> APIResponse {
         let path = action == .sub ? "subscribe" : "unsubscribe"
-        let data: [String: Any] = [
+        var data: [String: Any] = [
             "id": id,
         ]
+        if let checkToken = checkToken {
+            data["checkToken"] = checkToken
+        }
         return try await request(
             "/api/playlist/\(path)",
             data: data,

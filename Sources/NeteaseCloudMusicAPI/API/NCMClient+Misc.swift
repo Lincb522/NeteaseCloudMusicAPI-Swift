@@ -14,8 +14,15 @@ extension NCMClient {
     /// - Parameter type: Banner 客户端类型，默认 `.iphone`
     /// - Returns: API 响应，包含 Banner 列表
     public func banner(type: BannerType = .iphone) async throws -> APIResponse {
+        // Node.js 原版将数字映射为字符串: 0→pc, 1→android, 2→iphone, 3→ipad
+        let clientTypeMap: [BannerType: String] = [
+            .pc: "pc",
+            .android: "android",
+            .iphone: "iphone",
+            .ipad: "ipad",
+        ]
         let data: [String: Any] = [
-            "clientType": "\(type.rawValue)",
+            "clientType": clientTypeMap[type] ?? "iphone",
         ]
         return try await request("/api/v2/banner/get", data: data)
     }
