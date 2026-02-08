@@ -50,33 +50,57 @@ public struct UnblockResult {
 
 /// JS 脚本音源
 /// 支持导入第三方 JS 音源脚本文件
-/// JS 脚本需导出以下函数:
-/// - `getUrl(songId, quality)` 返回 `{ url: "...", quality: "..." }` 或 URL 字符串
-/// - 可选: `getMusicInfo()` 返回 `{ name: "音源名", platforms: [...] }`
+/// 自动检测脚本格式：
+/// - 洛雪插件格式：依赖 globalThis.lx 事件系统，SDK 自动模拟运行环境
+/// - 简单函数格式：导出 getUrl(songId, quality) 函数
 public class JSScriptSource: NCMUnblockSource {
     public let name: String
     public let sourceType: UnblockSourceType = .jsScript
     /// JS 脚本内容
     public let scriptContent: String
+    /// 是否为洛雪插件格式
+    public let isLxFormat: Bool
     /// JS 执行上下文
     private let context: JSContext
+    /// 洛雪格式：注册的请求处理器
+    private var lxRequestHandler: JSValue?
+    /// 洛雪格式：支持的音源列表
+    private var lxSources: [String: Any] = [:]
 
     /// 从 JS 脚本内容初始化
     /// - Parameters:
-    ///   - name: 音源名称（若脚本中有 getMusicInfo 则自动获取）
+    ///   - name: 音源名称（自动从脚本注释或 inited 事件中获取）
     ///   - script: JS 脚本内容
     public init(name: String = "JS音源", script: String) {
         self.scriptContent = script
         self.context = JSContext()!
+        // 检测是否为洛雪插件格式
+        self.isLxFormat = script.contains("globalThis.lx") || script.contains("EVENT_NAMES")
 
-        // 注入 console.log
-        let logHandler: @convention(block) (String) -> Void = { msg in
+        // 注入 console
+        let logHandler: @convention(block) (JSValue) -> Void = { msg in
             print("[JSSource] \(msg)")
         }
+        let groupHandler: @convention(block) (JSValue) -> Void = { msg in
+            print("[JSSource] ▸ \(msg)")
+        }
+        let groupEndHandler: @convention(block) () -> Void = {
+            // 忽略 groupEnd
+        }
         context.setObject(logHandler, forKeyedSubscript: "___log" as NSString)
-        context.evaluateScript("var console = { log: ___log, warn: ___log, error: ___log };")
+        context.setObject(groupHandler, forKeyedSubscript: "___group" as NSString)
+        context.setObject(groupEndHandler, forKeyedSubscript: "___groupEnd" as NSString)
+        context.evaluateScript("""
+            var console = {
+                log: function() { var args = Array.prototype.slice.call(arguments); ___log(args.map(function(a) { try { return typeof a === 'object' ? JSON.stringify(a) : String(a); } catch(e) { return String(a); } }).join(' ')); },
+                warn: function() { var args = Array.prototype.slice.call(arguments); ___log(args.map(function(a) { try { return typeof a === 'object' ? JSON.stringify(a) : String(a); } catch(e) { return String(a); } }).join(' ')); },
+                error: function() { var args = Array.prototype.slice.call(arguments); ___log(args.map(function(a) { try { return typeof a === 'object' ? JSON.stringify(a) : String(a); } catch(e) { return String(a); } }).join(' ')); },
+                group: function() { var args = Array.prototype.slice.call(arguments); ___group(args.join(' ')); },
+                groupEnd: ___groupEnd
+            };
+        """)
 
-        // 注入 HTTP 请求能力（同步模拟，JS 中用 httpGet(url) 调用）
+        // 注入同步 HTTP 请求（简单格式用）
         let httpGet: @convention(block) (String) -> String = { urlStr in
             guard let url = URL(string: urlStr) else { return "" }
             let semaphore = DispatchSemaphore(value: 0)
@@ -93,31 +117,164 @@ public class JSScriptSource: NCMUnblockSource {
         }
         context.setObject(httpGet, forKeyedSubscript: "httpGet" as NSString)
 
+        if isLxFormat {
+            // 模拟洛雪运行环境
+            self.setupLxEnvironment()
+        }
+
+        // 异常处理
+        context.exceptionHandler = { _, exception in
+            if let ex = exception {
+                print("[JSSource] ⚠️ JS 异常: \(ex)")
+            }
+        }
+
         // 执行脚本
         context.evaluateScript(script)
 
-        // 尝试从脚本获取音源名称
-        if let info = context.evaluateScript("typeof getMusicInfo === 'function' ? getMusicInfo() : null"),
-           !info.isNull, !info.isUndefined,
-           let dict = info.toDictionary(),
-           let scriptName = dict["name"] as? String {
-            self.name = scriptName
-        } else {
-            self.name = name
+        // 获取音源名称
+        var resolvedName = name
+        // 优先从脚本注释中提取 @name
+        if let range = script.range(of: #"@name\s+(.+)"#, options: .regularExpression) {
+            let matched = String(script[range])
+            let nameValue = matched.replacingOccurrences(of: #"@name\s+"#, with: "", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines)
+            if !nameValue.isEmpty {
+                resolvedName = nameValue
+            }
         }
+        // 简单格式：尝试 getMusicInfo()
+        if !isLxFormat {
+            if let info = context.evaluateScript("typeof getMusicInfo === 'function' ? getMusicInfo() : null"),
+               !info.isNull, !info.isUndefined,
+               let dict = info.toDictionary(),
+               let scriptName = dict["name"] as? String {
+                resolvedName = scriptName
+            }
+        }
+        self.name = resolvedName
     }
 
     /// 从文件 URL 初始化
-    /// - Parameters:
-    ///   - name: 音源名称
-    ///   - fileURL: JS 文件路径
     public convenience init(name: String = "JS音源", fileURL: URL) throws {
         let script = try String(contentsOf: fileURL, encoding: .utf8)
         self.init(name: name, script: script)
     }
 
+    /// 模拟洛雪 globalThis.lx 运行环境
+    private func setupLxEnvironment() {
+        // 存储事件处理器的容器
+        context.evaluateScript("""
+            var ___lxHandlers = {};
+            var ___lxSources = {};
+            var ___lxInited = false;
+        """)
+
+        // 注入同步 HTTP 请求（洛雪 request 格式）
+        // request(url, options, callback) -> callback(err, resp)
+        let lxRequest: @convention(block) (String, JSValue, JSValue) -> Void = { urlStr, optionsVal, callback in
+            guard let url = URL(string: urlStr) else {
+                callback.call(withArguments: ["无效 URL", NSNull()])
+                return
+            }
+            let options = optionsVal.toDictionary() ?? [:]
+            let method = (options["method"] as? String) ?? "GET"
+            let headers = options["headers"] as? [String: String] ?? [:]
+
+            var request = URLRequest(url: url)
+            request.httpMethod = method
+            for (key, value) in headers {
+                request.setValue(value, forHTTPHeaderField: key)
+            }
+            if let bodyData = options["body"] as? String {
+                request.httpBody = bodyData.data(using: .utf8)
+            }
+
+            let semaphore = DispatchSemaphore(value: 0)
+            var responseBody: Any = NSNull()
+            var responseError: Any = NSNull()
+            var statusCode = 200
+
+            let task = URLSession.shared.dataTask(with: request) { data, resp, error in
+                if let error = error {
+                    responseError = error.localizedDescription
+                } else if let data = data {
+                    statusCode = (resp as? HTTPURLResponse)?.statusCode ?? 200
+                    // 尝试解析 JSON
+                    if let json = try? JSONSerialization.jsonObject(with: data) {
+                        responseBody = json
+                    } else if let text = String(data: data, encoding: .utf8) {
+                        responseBody = text
+                    }
+                }
+                semaphore.signal()
+            }
+            task.resume()
+            semaphore.wait()
+
+            if !(responseError is NSNull) {
+                callback.call(withArguments: [responseError, NSNull()])
+            } else {
+                // 构造 resp 对象: { statusCode, body, headers }
+                let respObj: [String: Any] = [
+                    "statusCode": statusCode,
+                    "body": responseBody,
+                    "headers": [String: String]()
+                ]
+                callback.call(withArguments: [NSNull(), respObj])
+            }
+        }
+        context.setObject(lxRequest, forKeyedSubscript: "___lxRequest" as NSString)
+
+        // on(eventName, handler) — 注册事件处理器
+        let lxOn: @convention(block) (String, JSValue) -> Void = { [weak self] eventName, handler in
+            self?.context.evaluateScript("___lxHandlers['\(eventName)'] = true;")
+            if eventName == "request" {
+                self?.lxRequestHandler = handler
+            }
+        }
+        context.setObject(lxOn, forKeyedSubscript: "___lxOn" as NSString)
+
+        // send(eventName, data) — 发送事件
+        let lxSend: @convention(block) (String, JSValue) -> Void = { [weak self] eventName, data in
+            if eventName == "inited" {
+                if let dict = data.toDictionary(),
+                   let sources = dict["sources"] as? [String: Any] {
+                    self?.lxSources = sources
+                }
+            }
+        }
+        context.setObject(lxSend, forKeyedSubscript: "___lxSend" as NSString)
+
+        // 注入 globalThis.lx 对象
+        context.evaluateScript("""
+            var globalThis = globalThis || this;
+            globalThis.lx = {
+                EVENT_NAMES: {
+                    request: 'request',
+                    inited: 'inited',
+                    updateAlert: 'updateAlert'
+                },
+                request: ___lxRequest,
+                on: ___lxOn,
+                send: ___lxSend,
+                utils: {},
+                env: 'mobile',
+                version: '2.0.0'
+            };
+            var lx = globalThis.lx;
+        """)
+    }
+
     public func match(id: Int, title: String?, artist: String?, quality: String) async throws -> UnblockResult {
-        // 调用 JS 的 getUrl 函数
+        if isLxFormat {
+            return try await matchLxFormat(id: id, title: title, artist: artist, quality: quality)
+        } else {
+            return try await matchSimpleFormat(id: id, quality: quality)
+        }
+    }
+
+    /// 简单格式：调用 getUrl(songId, quality)
+    private func matchSimpleFormat(id: Int, quality: String) async throws -> UnblockResult {
         guard let getUrl = context.objectForKeyedSubscript("getUrl"),
               !getUrl.isUndefined else {
             throw NCMError.invalidURL
@@ -125,7 +282,6 @@ public class JSScriptSource: NCMUnblockSource {
 
         let jsResult = getUrl.call(withArguments: [id, quality])
 
-        // 解析返回值：可能是字符串 URL 或对象 { url, quality }
         if let dict = jsResult?.toDictionary(),
            let url = dict["url"] as? String, !url.isEmpty {
             return UnblockResult(
@@ -139,6 +295,97 @@ public class JSScriptSource: NCMUnblockSource {
         }
 
         return UnblockResult(url: "", quality: quality, platform: name)
+    }
+
+    /// 洛雪格式：通过事件系统调用 handleGetMusicUrl
+    private func matchLxFormat(id: Int, title: String?, artist: String?, quality: String) async throws -> UnblockResult {
+        guard let handler = lxRequestHandler else {
+            throw NCMError.invalidURL
+        }
+
+        // 确定使用哪个 source（优先 wy/网易云）
+        let sourceKey: String
+        if lxSources.keys.contains("wy") {
+            sourceKey = "wy"
+        } else if let first = lxSources.keys.first {
+            sourceKey = first
+        } else {
+            sourceKey = "wy"
+        }
+
+        // 映射音质：320 -> 320k, 128 -> 128k, flac 等
+        let lxQuality: String
+        switch quality {
+        case "128": lxQuality = "128k"
+        case "192": lxQuality = "192k"
+        case "320": lxQuality = "320k"
+        case "740", "flac": lxQuality = "flac"
+        case "999": lxQuality = "flac24bit"
+        default:
+            if quality.hasSuffix("k") || quality.contains("flac") || quality.contains("hires") || quality.contains("atmos") || quality.contains("master") {
+                lxQuality = quality
+            } else {
+                lxQuality = quality + "k"
+            }
+        }
+
+        // 构造 musicInfo 对象
+        let musicInfoDict: [String: Any] = [
+            "songmid": id,
+            "hash": "\(id)",
+            "name": title ?? "",
+            "singer": artist ?? "",
+            "source": "wy"
+        ]
+
+        // 构造请求参数
+        let requestInfo: [String: Any] = [
+            "type": lxQuality,
+            "musicInfo": musicInfoDict
+        ]
+
+        // 调用处理器，返回 Promise
+        guard let promise = handler.call(withArguments: [
+            ["action": "musicUrl", "source": sourceKey, "info": requestInfo]
+        ]) else {
+            return UnblockResult(url: "", quality: quality, platform: name)
+        }
+
+        // 等待 Promise 结果
+        return try await withCheckedThrowingContinuation { continuation in
+            let onFulfilled: @convention(block) (JSValue) -> Void = { [weak self] value in
+                let urlStr = value.toString() ?? ""
+                if !urlStr.isEmpty && urlStr != "undefined" && urlStr != "null" {
+                    continuation.resume(returning: UnblockResult(
+                        url: urlStr,
+                        quality: quality,
+                        platform: self?.name ?? "JS音源"
+                    ))
+                } else {
+                    continuation.resume(returning: UnblockResult(url: "", quality: quality, platform: self?.name ?? "JS音源"))
+                }
+            }
+            let onRejected: @convention(block) (JSValue) -> Void = { value in
+                let errMsg = value.toString() ?? "未知错误"
+                continuation.resume(throwing: NCMError.serverError(code: -1, message: errMsg))
+            }
+
+            let fulfillBlock = JSValue(object: onFulfilled, in: context)
+            let rejectBlock = JSValue(object: onRejected, in: context)
+
+            // promise.then(onFulfilled, onRejected)
+            if let then = promise.forProperty("then"), !then.isUndefined {
+                then.call(withArguments: [fulfillBlock as Any, rejectBlock as Any])
+            } else {
+                // 不是 Promise，直接当结果处理
+                let urlStr = promise.toString() ?? ""
+                if !urlStr.isEmpty && urlStr != "undefined" && urlStr != "null" {
+                    continuation.resume(returning: UnblockResult(url: urlStr, quality: quality, platform: name))
+                } else {
+                    continuation.resume(returning: UnblockResult(url: "", quality: quality, platform: name))
+                }
+            }
+        }
     }
 }
 
