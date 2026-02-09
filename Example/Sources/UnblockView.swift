@@ -139,33 +139,6 @@ struct UnblockView: View {
                     .foregroundColor(.secondary)
                 }
 
-                if let result = vm.unblockResult {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Label("匹配成功", systemImage: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                            .font(.subheadline.bold())
-                        HStack {
-                            Text("来源:")
-                                .foregroundColor(.secondary)
-                            Text(result.platform)
-                                .fontWeight(.medium)
-                        }
-                        .font(.caption)
-                        HStack {
-                            Text("音质:")
-                                .foregroundColor(.secondary)
-                            Text(result.quality)
-                                .fontWeight(.medium)
-                        }
-                        .font(.caption)
-                        Text(result.url)
-                            .font(.caption2)
-                            .foregroundColor(.blue)
-                            .lineLimit(2)
-                    }
-                    .padding(.vertical, 4)
-                }
-
                 if let err = vm.unblockError {
                     Label(err, systemImage: "xmark.circle.fill")
                         .foregroundColor(.red)
@@ -173,24 +146,77 @@ struct UnblockView: View {
                 }
             }
 
+            // MARK: - 全平台结果列表
+            if !vm.unblockAllResults.isEmpty {
+                let successItems = vm.unblockAllResults.filter { $0.success }
+                let failItems = vm.unblockAllResults.filter { !$0.success }
+
+                Section {
+                    ForEach(successItems) { item in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                        .font(.caption)
+                                    Text(item.platformKey.isEmpty ? item.sourceName : "\(item.sourceName) · \(item.platformKey)")
+                                        .font(.subheadline.bold())
+                                }
+                                Text(item.detail)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                            Button {
+                                let label = item.platformKey.isEmpty ? item.sourceName : "\(item.sourceName)(\(item.platformKey))"
+                                vm.playUrl(item.url, label: label)
+                            } label: {
+                                Image(systemName: "play.fill")
+                                    .font(.caption)
+                                    .padding(6)
+                                    .background(Color.accentColor.opacity(0.1))
+                                    .clipShape(Circle())
+                            }
+                        }
+                    }
+                } header: {
+                    Text("匹配成功 (\(successItems.count))")
+                }
+
+                if !failItems.isEmpty {
+                    Section {
+                        ForEach(failItems) { item in
+                            HStack {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.red)
+                                    .font(.caption)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.platformKey.isEmpty ? item.sourceName : "\(item.sourceName) · \(item.platformKey)")
+                                        .font(.subheadline)
+                                    Text(item.detail)
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                }
+                            }
+                        }
+                    } header: {
+                        Text("匹配失败 (\(failItems.count))")
+                    }
+                }
+            }
+
             // MARK: - 播放控制
-            if vm.unblockResult != nil {
+            if vm.isUnblockPlaying || !vm.unblockPlayStatus.isEmpty {
                 Section("播放") {
                     HStack {
-                        Button {
-                            Task { await vm.playUnblockResult() }
-                        } label: {
-                            Label(
-                                vm.isUnblockPlaying ? "正在播放" : "播放",
-                                systemImage: vm.isUnblockPlaying ? "pause.circle.fill" : "play.circle.fill"
-                            )
-                        }
-                        Spacer()
                         if vm.isUnblockPlaying {
                             Button("停止", role: .destructive) {
                                 vm.stopUnblockPlaying()
                             }
                         }
+                        Spacer()
                     }
                     if !vm.unblockPlayStatus.isEmpty {
                         Text(vm.unblockPlayStatus)
@@ -200,41 +226,20 @@ struct UnblockView: View {
                 }
             }
 
-            // MARK: - 全部音源对比
-            Section("全部音源对比测试") {
-                Button {
-                    Task { await vm.testUnblockAll() }
-                } label: {
-                    HStack {
-                        if vm.isUnblockAllLoading {
-                            ProgressView()
-                        } else {
-                            Label("测试全部启用音源", systemImage: "list.bullet.rectangle")
+            // MARK: - 调试日志
+            if !vm.unblockLogs.isEmpty {
+                Section {
+                    DisclosureGroup("调试日志 (\(vm.unblockLogs.count) 条)") {
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 2) {
+                                ForEach(Array(vm.unblockLogs.enumerated()), id: \.offset) { _, log in
+                                    Text(log)
+                                        .font(.system(.caption2, design: .monospaced))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
                         }
-                        Spacer()
-                        Text("\(vm.enabledSourceCount) 个音源")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .disabled(vm.isUnblockAllLoading || vm.enabledSourceCount == 0)
-
-                ForEach(Array(vm.unblockAllResults.enumerated()), id: \.offset) { _, item in
-                    HStack {
-                        Image(systemName: item.success ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundColor(item.success ? .green : .red)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(item.sourceName)
-                                .font(.subheadline.bold())
-                            Text(item.detail)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .lineLimit(2)
-                        }
-                        Spacer()
-                        Text(item.duration)
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+                        .frame(maxHeight: 200)
                     }
                 }
             }

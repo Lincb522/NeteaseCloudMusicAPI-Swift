@@ -28,6 +28,20 @@ public class NCMClient {
     /// 需要先设置 `unblockManager` 并注册音源
     public var autoUnblock: Bool = false
 
+    /// 自动解灰缓存：记录已解灰过的歌曲 ID 及其结果 URL
+    /// 避免同一首歌反复解灰导致无限重试（如第三方源返回的 URL 播放失败时）
+    /// key = 歌曲 ID，value = (解灰 URL, 缓存时间)
+    internal var unblockCache: [Int: (url: String, cachedAt: Date)] = [:]
+
+    /// 解灰缓存有效期（秒），默认 5 分钟
+    /// 同一首歌在缓存期内不会重复解灰
+    public var unblockCacheTTL: TimeInterval = 300
+
+    /// 清除解灰缓存
+    public func clearUnblockCache() {
+        unblockCache.removeAll()
+    }
+
     /// 网易云音乐主域名（WeAPI / LinuxAPI 使用）
     public var domain: String {
         get { requestClient.domain }

@@ -174,13 +174,19 @@ class DemoViewModel: ObservableObject {
     @Published var showJSFilePicker: Bool = false
     @Published var showAddURLSource: Bool = false
     @Published var jsScriptInput: String = ""
+    /// 解灰过程日志（供 UI 展示）
+    @Published var unblockLogs: [String] = []
     private var unblockPlayer: AVPlayer?
 
     /// 解灰全部音源对比测试结果项
-    struct UnblockTestItem {
+    struct UnblockTestItem: Identifiable {
+        let id = UUID()
         let sourceName: String
+        /// 平台标识（如 kw、mg、qq），非洛雪格式为空
+        let platformKey: String
         let success: Bool
         let detail: String
+        let url: String
         let duration: String
     }
 
@@ -753,7 +759,7 @@ class DemoViewModel: ObservableObject {
         return (nil, nil)
     }
 
-    /// 单曲解灰测试
+    /// 单曲解灰测试 — 遍历所有音源的所有平台，展示全部结果
     func testUnblockSingle() async {
         guard let songId = Int(unblockSongId) else {
             unblockError = "请输入有效的歌曲 ID"
@@ -764,6 +770,8 @@ class DemoViewModel: ObservableObject {
         unblockError = nil
         unblockSongName = ""
         unblockPlayStatus = ""
+        unblockAllResults = []
+        unblockLogs = []
         print("[NCMDemo] ➡️ 解灰测试: id=\(songId) 音质=\(unblockQuality)")
 
         let info = await fetchSongName(id: songId)
@@ -771,22 +779,107 @@ class DemoViewModel: ObservableObject {
             unblockSongName = "\(name) - \(info.artist ?? "未知")"
         }
 
-        let manager = buildUnblockManager()
         let start = CFAbsoluteTimeGetCurrent()
+        var allItems: [UnblockTestItem] = []
 
-        let result = await manager.match(
-            id: songId,
-            title: info.name,
-            artist: info.artist,
-            quality: unblockQuality
-        )
+        for sourceItem in unblockSources where sourceItem.enabled {
+            switch sourceItem.type {
+            case .jsScript:
+                // JS 音源：开启 testMode 遍历所有平台
+                let source = JSScriptSource(name: sourceItem.name, script: sourceItem.script)
+                source.testMode = true
+                source.logHandler = { [weak self] msg in
+                    DispatchQueue.main.async {
+                        self?.unblockLogs.append(msg)
+                    }
+                }
+                let _ = try? await source.match(
+                    id: songId,
+                    title: info.name,
+                    artist: info.artist,
+                    quality: unblockQuality
+                )
+                // 收集每个平台的结果
+                for (platform, url) in source.testPlatformResults.sorted(by: { $0.key < $1.key }) {
+                    if url.isEmpty {
+                        allItems.append(UnblockTestItem(
+                            sourceName: sourceItem.name,
+                            platformKey: platform,
+                            success: false,
+                            detail: "未匹配到",
+                            url: "",
+                            duration: ""
+                        ))
+                    } else {
+                        allItems.append(UnblockTestItem(
+                            sourceName: sourceItem.name,
+                            platformKey: platform,
+                            success: true,
+                            detail: url.count > 60 ? String(url.prefix(60)) + "..." : url,
+                            url: url,
+                            duration: ""
+                        ))
+                    }
+                }
+                // 如果不是洛雪格式（没有多平台），testPlatformResults 可能为空
+                if source.testPlatformResults.isEmpty {
+                    // 简单格式：直接调用一次
+                    let simpleResult = try? await JSScriptSource(name: sourceItem.name, script: sourceItem.script)
+                        .match(id: songId, title: info.name, artist: info.artist, quality: unblockQuality)
+                    let url = simpleResult?.url ?? ""
+                    allItems.append(UnblockTestItem(
+                        sourceName: sourceItem.name,
+                        platformKey: "",
+                        success: !url.isEmpty,
+                        detail: url.isEmpty ? "未匹配到" : (url.count > 60 ? String(url.prefix(60)) + "..." : url),
+                        url: url,
+                        duration: ""
+                    ))
+                }
+
+            case .httpUrl:
+                // 自定义地址音源：直接请求
+                let source = CustomURLSource(name: sourceItem.name, baseURL: sourceItem.url, urlTemplate: sourceItem.urlTemplate)
+                do {
+                    let result = try await source.match(
+                        id: songId,
+                        title: info.name,
+                        artist: info.artist,
+                        quality: unblockQuality
+                    )
+                    allItems.append(UnblockTestItem(
+                        sourceName: sourceItem.name,
+                        platformKey: "",
+                        success: !result.url.isEmpty,
+                        detail: result.url.isEmpty ? "返回空 URL" : (result.url.count > 60 ? String(result.url.prefix(60)) + "..." : result.url),
+                        url: result.url,
+                        duration: ""
+                    ))
+                } catch {
+                    allItems.append(UnblockTestItem(
+                        sourceName: sourceItem.name,
+                        platformKey: "",
+                        success: false,
+                        detail: error.localizedDescription,
+                        url: "",
+                        duration: ""
+                    ))
+                }
+            }
+        }
+
         let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+        unblockAllResults = allItems
 
-        if let result = result, !result.url.isEmpty {
-            unblockResult = result
-            print("[NCMDemo] ✅ 解灰成功 [\(ms)ms] 来源=\(result.platform) 音质=\(result.quality)")
+        let successCount = allItems.filter { $0.success }.count
+        if successCount > 0 {
+            // 取第一个成功的作为默认播放结果
+            if let first = allItems.first(where: { $0.success }) {
+                unblockResult = UnblockResult(url: first.url, quality: unblockQuality, platform: "\(first.sourceName)(\(first.platformKey))")
+            }
+            print("[NCMDemo] ✅ 解灰完成 [\(ms)ms] \(successCount)/\(allItems.count) 个平台成功")
         } else {
-            unblockError = "所有音源均未匹配到结果 (\(ms)ms)"
+            unblockError = "所有音源/平台均未匹配到结果 (\(ms)ms)"
             print("[NCMDemo] ❌ 解灰失败 [\(ms)ms]")
         }
         isUnblockLoading = false
@@ -844,13 +937,6 @@ class DemoViewModel: ObservableObject {
             unblockPlayStatus = "无效的播放 URL"
             return
         }
-        // 检查格式兼容性
-        if !isAVPlayerCompatible(url: result.url) {
-            let ext = url.pathExtension.lowercased()
-            unblockPlayStatus = "⚠️ 不支持的格式: .\(ext)（AVPlayer 无法播放 .ogg/.opus 等格式）"
-            print("[NCMDemo] ⚠️ 不支持的音频格式: .\(ext)")
-            return
-        }
         print("[NCMDemo] ▶️ 播放解灰结果: \(result.url)")
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
@@ -873,6 +959,28 @@ class DemoViewModel: ObservableObject {
         isUnblockPlaying = false
         unblockPlayStatus = "已停止"
         print("[NCMDemo] ⏹ 停止解灰播放")
+    }
+
+    /// 播放指定 URL（从结果列表中选择播放）
+    func playUrl(_ urlString: String, label: String = "") {
+        stopUnblockPlaying()
+        guard let url = URL(string: urlString) else {
+            unblockPlayStatus = "无效的播放 URL"
+            return
+        }
+        print("[NCMDemo] ▶️ 播放: \(label) \(urlString.prefix(60))")
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            try AVAudioSession.sharedInstance().setActive(true)
+            let playerItem = AVPlayerItem(url: url)
+            unblockPlayer = AVPlayer(playerItem: playerItem)
+            unblockPlayer?.play()
+            isUnblockPlaying = true
+            unblockPlayStatus = "正在播放: \(label)"
+        } catch {
+            unblockPlayStatus = "播放失败: \(error.localizedDescription)"
+            print("[NCMDemo] ❌ 播放失败: \(error)")
+        }
     }
 
     // MARK: - 专辑
