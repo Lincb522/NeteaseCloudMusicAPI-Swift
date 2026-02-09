@@ -65,23 +65,7 @@ public class JSScriptSource: NCMUnblockSource {
     /// 洛雪格式：注册的请求处理器
     private var lxRequestHandler: JSValue?
     /// 洛雪格式：支持的音源列表
-    public private(set) var lxSources: [String: Any] = [:]
-
-    /// 外部日志回调（设置后，console.log / HTTP 请求等信息会同时回调给外部）
-    /// 线程安全：回调可能在非主线程触发
-    public var logHandler: ((String) -> Void)?
-
-    /// 测试模式：开启后 matchLxFormat 会遍历所有平台而不是匹配到就返回
-    public var testMode: Bool = false
-
-    /// 测试模式下收集的各平台结果（key = 平台名，value = 是否成功）
-    public var testPlatformResults: [(platform: String, success: Bool)] = []
-
-    /// 内部日志方法，同时输出到控制台和外部回调
-    private func emitLog(_ message: String) {
-        print(message)
-        logHandler?(message)
-    }
+    private var lxSources: [String: Any] = [:]
 
     /// 从 JS 脚本内容初始化
     /// - Parameters:
@@ -93,21 +77,18 @@ public class JSScriptSource: NCMUnblockSource {
         // 检测是否为洛雪插件格式
         self.isLxFormat = script.contains("globalThis.lx") || script.contains("EVENT_NAMES")
 
-        // 先赋临时名称，满足 Swift 存储属性初始化要求
-        self.name = name
-
-        // 注入 console（使用 weak self 回调外部日志）
-        let logCallback: @convention(block) (JSValue) -> Void = { [weak self] msg in
-            self?.emitLog("[JSSource] \(msg)")
+        // 注入 console
+        let logHandler: @convention(block) (JSValue) -> Void = { msg in
+            print("[JSSource] \(msg)")
         }
-        let groupCallback: @convention(block) (JSValue) -> Void = { [weak self] msg in
-            self?.emitLog("[JSSource] ▸ \(msg)")
+        let groupHandler: @convention(block) (JSValue) -> Void = { msg in
+            print("[JSSource] ▸ \(msg)")
         }
         let groupEndHandler: @convention(block) () -> Void = {
             // 忽略 groupEnd
         }
-        context.setObject(logCallback, forKeyedSubscript: "___log" as NSString)
-        context.setObject(groupCallback, forKeyedSubscript: "___group" as NSString)
+        context.setObject(logHandler, forKeyedSubscript: "___log" as NSString)
+        context.setObject(groupHandler, forKeyedSubscript: "___group" as NSString)
         context.setObject(groupEndHandler, forKeyedSubscript: "___groupEnd" as NSString)
         context.evaluateScript("""
             var console = {
@@ -120,8 +101,7 @@ public class JSScriptSource: NCMUnblockSource {
         """)
 
         // 注入同步 HTTP 请求（简单格式用）
-        let httpGet: @convention(block) (String) -> String = { [weak self] urlStr in
-            self?.emitLog("[JSSource] 🔗 HTTP GET: \(urlStr)")
+        let httpGet: @convention(block) (String) -> String = { urlStr in
             guard let url = URL(string: urlStr) else { return "" }
             let semaphore = DispatchSemaphore(value: 0)
             var result = ""
@@ -133,10 +113,12 @@ public class JSScriptSource: NCMUnblockSource {
             }
             task.resume()
             semaphore.wait()
-            self?.emitLog("[JSSource] 📥 响应长度: \(result.count) 字符")
             return result
         }
         context.setObject(httpGet, forKeyedSubscript: "httpGet" as NSString)
+
+        // 先赋临时名称，满足 Swift 存储属性初始化要求
+        self.name = name
 
         if isLxFormat {
             // 模拟洛雪运行环境
@@ -144,9 +126,9 @@ public class JSScriptSource: NCMUnblockSource {
         }
 
         // 异常处理
-        context.exceptionHandler = { [weak self] _, exception in
+        context.exceptionHandler = { _, exception in
             if let ex = exception {
-                self?.emitLog("[JSSource] ⚠️ JS 异常: \(ex)")
+                print("[JSSource] ⚠️ JS 异常: \(ex)")
             }
         }
 
@@ -190,8 +172,7 @@ public class JSScriptSource: NCMUnblockSource {
 
         // 注入同步 HTTP 请求（洛雪 request 格式）
         // request(url, options, callback) -> callback(err, resp)
-        let lxRequest: @convention(block) (String, JSValue, JSValue) -> Void = { [weak self] urlStr, optionsVal, callback in
-            self?.emitLog("[JSSource] 🔗 LX Request: \(urlStr)")
+        let lxRequest: @convention(block) (String, JSValue, JSValue) -> Void = { urlStr, optionsVal, callback in
             guard let url = URL(string: urlStr) else {
                 callback.call(withArguments: ["无效 URL", NSNull()])
                 return
@@ -232,10 +213,8 @@ public class JSScriptSource: NCMUnblockSource {
             semaphore.wait()
 
             if !(responseError is NSNull) {
-                self?.emitLog("[JSSource] ❌ 请求失败: \(responseError)")
                 callback.call(withArguments: [responseError, NSNull()])
             } else {
-                self?.emitLog("[JSSource] 📥 响应 \(statusCode)")
                 // 构造 resp 对象: { statusCode, body, headers }
                 let respObj: [String: Any] = [
                     "statusCode": statusCode,
@@ -325,16 +304,14 @@ public class JSScriptSource: NCMUnblockSource {
             throw NCMError.invalidURL
         }
 
-        // 构建源优先级列表：优先 wy，然后尝试其他所有可用源
-        var sourceKeys: [String] = []
+        // 确定使用哪个 source（优先 wy/网易云）
+        let sourceKey: String
         if lxSources.keys.contains("wy") {
-            sourceKeys.append("wy")
-        }
-        for key in lxSources.keys.sorted() where key != "wy" {
-            sourceKeys.append(key)
-        }
-        if sourceKeys.isEmpty {
-            sourceKeys.append("wy")
+            sourceKey = "wy"
+        } else if let first = lxSources.keys.first {
+            sourceKey = first
+        } else {
+            sourceKey = "wy"
         }
 
         // 映射音质：320 -> 320k, 128 -> 128k, flac 等
@@ -359,64 +336,7 @@ public class JSScriptSource: NCMUnblockSource {
         let handler = self.lxRequestHandler!
         let sourceName = self.name
 
-        // 逐个源尝试
-        var firstSuccessResult: UnblockResult?
-        if testMode {
-            testPlatformResults.removeAll()
-        }
-        for sourceKey in sourceKeys {
-            do {
-                let result = try await matchLxFormatSingle(
-                    sourceKey: sourceKey,
-                    id: id,
-                    songName: songName,
-                    artistName: artistName,
-                    lxQuality: lxQuality,
-                    quality: quality,
-                    ctx: ctx,
-                    handler: handler,
-                    sourceName: sourceName
-                )
-                if !result.url.isEmpty {
-                    emitLog("[JSSource] [\(sourceName)] \(sourceKey) ✅ 匹配成功")
-                    if testMode {
-                        testPlatformResults.append((platform: sourceKey, success: true))
-                        if firstSuccessResult == nil {
-                            firstSuccessResult = result
-                        }
-                    } else {
-                        return result
-                    }
-                } else {
-                    emitLog("[JSSource] [\(sourceName)] \(sourceKey) ❌ 返回空 URL")
-                    if testMode {
-                        testPlatformResults.append((platform: sourceKey, success: false))
-                    }
-                }
-            } catch {
-                emitLog("[JSSource] [\(sourceName)] \(sourceKey) ❌ 错误: \(error.localizedDescription)")
-                if testMode {
-                    testPlatformResults.append((platform: sourceKey, success: false))
-                }
-                continue
-            }
-        }
-
-        return firstSuccessResult ?? UnblockResult(url: "", quality: quality, platform: sourceName)
-    }
-
-    /// 洛雪格式：对单个 sourceKey 发起请求
-    private func matchLxFormatSingle(
-        sourceKey: String,
-        id: Int,
-        songName: String,
-        artistName: String,
-        lxQuality: String,
-        quality: String,
-        ctx: JSContext,
-        handler: JSValue,
-        sourceName: String
-    ) async throws -> UnblockResult {
+        // 在后台线程执行，避免主线程 semaphore 死锁
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 var resolvedUrl: String?
@@ -450,7 +370,7 @@ public class JSScriptSource: NCMUnblockSource {
                                     hash: '\(id)',
                                     name: '\(songName)',
                                     singer: '\(artistName)',
-                                    source: '\(sourceKey)'
+                                    source: 'wy'
                                 }
                             }
                         });
@@ -487,7 +407,7 @@ public class JSScriptSource: NCMUnblockSource {
                 }
 
                 let url = resolvedUrl ?? ""
-                continuation.resume(returning: UnblockResult(url: url, quality: quality, platform: "\(sourceName)(\(sourceKey))"))
+                continuation.resume(returning: UnblockResult(url: url, quality: quality, platform: sourceName))
             }
         }
     }
@@ -674,6 +594,25 @@ public class ServerUnblockSource: NCMUnblockSource {
     }
 }
 
+// MARK: - 音频格式兼容性
+
+/// AVPlayer 支持的音频文件扩展名
+/// 不在此列表中的格式（如 .ogg/.opus/.webm）会导致 AVPlayer 报错 -11849
+private let avPlayerSupportedExtensions: Set<String> = [
+    "mp3", "m4a", "aac", "wav", "flac", "alac", "aiff", "aif", "caf", "mp4", "m4b", "m4p"
+]
+
+/// 检查 URL 是否为 AVPlayer 可播放的音频格式
+/// - Parameter urlString: 音频文件 URL
+/// - Returns: true 表示格式兼容，false 表示不兼容（如 .ogg）
+public func isAVPlayerCompatible(url urlString: String) -> Bool {
+    guard let url = URL(string: urlString) else { return false }
+    let ext = url.pathExtension.lowercased()
+    // 无扩展名时默认兼容（可能是流媒体）
+    if ext.isEmpty { return true }
+    return avPlayerSupportedExtensions.contains(ext)
+}
+
 // MARK: - 解灰管理器
 
 /// 第三方音源管理器
@@ -681,6 +620,10 @@ public class ServerUnblockSource: NCMUnblockSource {
 public class UnblockManager {
     /// 已注册的音源列表（按优先级排序）
     public private(set) var sources: [NCMUnblockSource] = []
+
+    /// 是否过滤 AVPlayer 不兼容的格式（如 .ogg）
+    /// 默认 true，匹配到不兼容格式时跳过该结果继续尝试下一个音源
+    public var filterIncompatibleFormats: Bool = true
 
     public init() {}
 
@@ -706,6 +649,7 @@ public class UnblockManager {
 
     /// 按优先级尝试所有音源匹配
     /// - Returns: 第一个成功匹配的结果，全部失败返回 nil
+    /// - Note: 当 `filterIncompatibleFormats` 为 true 时，会跳过 .ogg 等 AVPlayer 不支持的格式
     public func match(
         id: Int,
         title: String? = nil,
@@ -716,6 +660,13 @@ public class UnblockManager {
             do {
                 let result = try await source.match(id: id, title: title, artist: artist, quality: quality)
                 if !result.url.isEmpty {
+                    // 检查格式兼容性
+                    if filterIncompatibleFormats && !isAVPlayerCompatible(url: result.url) {
+                        #if DEBUG
+                        print("[UnblockManager] ⚠️ 跳过不兼容格式: \(result.url.suffix(30)) (来源: \(source.name))")
+                        #endif
+                        continue
+                    }
                     return result
                 }
             } catch {
@@ -854,15 +805,22 @@ extension NCMClient {
                 artist: info?.artist,
                 quality: quality
             ), !result.url.isEmpty {
-                dataArray[i]["url"] = result.url
-                dataArray[i]["freeTrialInfo"] = NSNull()
-                dataArray[i]["_unblocked"] = true
-                dataArray[i]["_unblockedFrom"] = result.platform
-                modified = true
+                // 二次检查格式兼容性（match 内部已过滤，这里做兜底）
+                if !isAVPlayerCompatible(url: result.url) {
+                    #if DEBUG
+                    print("[NCM] ⚠️ 解灰跳过不兼容格式: id=\(songId) url=\(result.url.suffix(30))")
+                    #endif
+                } else {
+                    dataArray[i]["url"] = result.url
+                    dataArray[i]["freeTrialInfo"] = NSNull()
+                    dataArray[i]["_unblocked"] = true
+                    dataArray[i]["_unblockedFrom"] = result.platform
+                    modified = true
 
-                #if DEBUG
-                print("[NCM] ✅ 解灰成功: id=\(songId) 来源=\(result.platform)")
-                #endif
+                    #if DEBUG
+                    print("[NCM] ✅ 解灰成功: id=\(songId) 来源=\(result.platform)")
+                    #endif
+                }
             } else {
                 #if DEBUG
                 print("[NCM] ❌ 解灰失败: id=\(songId) 所有音源均未匹配")

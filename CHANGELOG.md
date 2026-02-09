@@ -1,5 +1,16 @@
 # 更新日志
 
+## 1.3.6 (2026-02-09)
+
+### 修复
+- **解灰 .ogg 无限重试 bug**：第三方音源返回 `.ogg`/`.opus`/`.webm` 等 AVPlayer 不支持的格式时，SDK 自动跳过该结果继续尝试下一个音源，避免播放失败后无限重试
+- 新增 `isAVPlayerCompatible(url:)` 公开函数，检查 URL 是否为 AVPlayer 可播放格式
+- `UnblockManager` 新增 `filterIncompatibleFormats` 属性（默认 true），`match()` 自动过滤不兼容格式
+- `autoUnblockResponse` 增加格式兼容性兜底检查
+- 示例应用播放前检查格式，不兼容时显示提示而非崩溃
+
+---
+
 ## 1.3.5 (2026-02-08)
 
 ### 新功能

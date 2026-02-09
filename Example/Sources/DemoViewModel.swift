@@ -844,6 +844,13 @@ class DemoViewModel: ObservableObject {
             unblockPlayStatus = "无效的播放 URL"
             return
         }
+        // 检查格式兼容性
+        if !isAVPlayerCompatible(url: result.url) {
+            let ext = url.pathExtension.lowercased()
+            unblockPlayStatus = "⚠️ 不支持的格式: .\(ext)（AVPlayer 无法播放 .ogg/.opus 等格式）"
+            print("[NCMDemo] ⚠️ 不支持的音频格式: .\(ext)")
+            return
+        }
         print("[NCMDemo] ▶️ 播放解灰结果: \(result.url)")
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
