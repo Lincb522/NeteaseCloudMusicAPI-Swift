@@ -913,12 +913,12 @@ class DemoViewModel: ObservableObject {
             switch r.result {
             case .success(let res):
                 if res.url.isEmpty {
-                    items.append(UnblockTestItem(sourceName: r.source, success: false, detail: "返回空 URL", duration: ""))
+                    items.append(UnblockTestItem(sourceName: r.source, platformKey: "", success: false, detail: "返回空 URL", url: "", duration: ""))
                 } else {
-                    items.append(UnblockTestItem(sourceName: r.source, success: true, detail: "音质: \(res.quality) | \(res.url.prefix(60))...", duration: ""))
+                    items.append(UnblockTestItem(sourceName: r.source, platformKey: "", success: true, detail: "音质: \(res.quality) | \(res.url.prefix(60))...", url: res.url, duration: ""))
                 }
             case .failure(let error):
-                items.append(UnblockTestItem(sourceName: r.source, success: false, detail: error.localizedDescription, duration: ""))
+                items.append(UnblockTestItem(sourceName: r.source, platformKey: "", success: false, detail: error.localizedDescription, url: "", duration: ""))
             }
         }
         unblockAllResults = items
@@ -1466,7 +1466,7 @@ class DemoViewModel: ObservableObject {
                     ?? data["level"] as? Int ?? 0
                 let expireTime = data["redVipExpireTime"] as? Int
                     ?? data["expireTime"] as? Int ?? 0
-                let dynamicIconUrl = data["dynamicIconUrl"] as? String ?? ""
+                let _ = data["dynamicIconUrl"] as? String ?? ""
                 let associator = data["associator"] as? [String: Any]
                 let musicPackage = data["musicPackage"] as? [String: Any]
 
