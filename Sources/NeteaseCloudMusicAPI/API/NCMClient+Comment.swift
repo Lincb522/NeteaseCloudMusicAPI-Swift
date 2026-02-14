@@ -34,10 +34,16 @@ extension NCMClient {
         content: String = "",
         commentId: Int = 0
     ) async throws -> APIResponse {
-        let prefix = NCMClient.commentThreadPrefixes[type] ?? "R_SO_4_"
-        let threadId = "\(prefix)\(id)"
+        // 网易云 /comment 接口需要的参数格式
+        // t: 操作类型 (1=发送, 0=删除, 2=回复)
+        // type: 资源类型 (0=歌曲, 1=MV, 2=歌单, 3=专辑, 4=电台节目, 5=视频, 6=动态)
+        // id: 资源 ID
+        // content: 评论内容
+        // commentId: 回复的评论 ID（回复时需要）
         var data: [String: Any] = [
-            "threadId": threadId,
+            "t": action.rawValue,
+            "type": type.rawValue,
+            "id": id,
         ]
         switch action {
         case .add:
