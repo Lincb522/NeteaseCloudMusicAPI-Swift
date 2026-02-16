@@ -855,6 +855,14 @@ enum RouteMap {
                 result["t"] = v ? 0 : 1
             }
 
+        // playlist_subscribe: 后端 playlist_subscribe.js 用 query.t 区分收藏/取消
+        // t=1 收藏, t=2 取消收藏; SDK 通过不同 API 路径区分但不传 t
+        case "/api/playlist/subscribe":
+            result["t"] = 1
+
+        case "/api/playlist/unsubscribe":
+            result["t"] = 2
+
         // playlist_tracks / song_order_update: trackIds → ids
         case "/api/playlist/manipulate/tracks":
             if let v = data["trackIds"] { result["ids"] = v }
