@@ -39,8 +39,13 @@ public class SessionManager {
 
     // MARK: - 公共属性
 
-    /// 当前 Cookie 存储（键值对）
-    public var cookies: [String: String]
+    /// 当前 Cookie 存储（键值对）— 通过 lock 保护线程安全
+    public var cookies: [String: String] {
+        get { lock.withLock { _cookies } }
+        set { lock.withLock { _cookies = newValue } }
+    }
+    private var _cookies: [String: String]
+    private let lock = NSLock()
 
     /// 当前平台类型
     public var platformType: PlatformType
@@ -122,7 +127,7 @@ public class SessionManager {
     ) {
         self.platformType = platformType
         self.anonymousToken = anonymousToken
-        self.cookies = cookies
+        self._cookies = cookies
         self.deviceId = SessionManager.generateRandomHex(count: 32)
         self.wnmcid = SessionManager.generateWNMCID()
     }
@@ -138,32 +143,33 @@ public class SessionManager {
     public func buildCookieHeader(for uri: String, crypto: CryptoMode) -> String {
         let osInfo = SessionManager.osMap[platformType] ?? SessionManager.osMap[.pc]!
 
-        // 生成随机 nuid
-        let nuid = cookies["_ntes_nuid"] ?? SessionManager.generateRandomHex(count: 32)
-        let nnid = cookies["_ntes_nnid"] ?? "\(nuid),\(Int(Date().timeIntervalSince1970 * 1000))"
+        // 整个读取操作在同一把锁内完成，保证一致性
+        let cookieDict: [String: String] = lock.withLock {
+            let nuid = _cookies["_ntes_nuid"] ?? SessionManager.generateRandomHex(count: 32)
+            let nnid = _cookies["_ntes_nnid"] ?? "\(nuid),\(Int(Date().timeIntervalSince1970 * 1000))"
 
-        // 构建完整的 Cookie 字典
-        var cookieDict = cookies
-        cookieDict["__remember_me"] = "true"
-        cookieDict["ntes_kaola_ad"] = "1"
-        cookieDict["_ntes_nuid"] = nuid
-        cookieDict["_ntes_nnid"] = nnid
-        cookieDict["WNMCID"] = cookies["WNMCID"] ?? wnmcid
-        cookieDict["WEVNSM"] = cookies["WEVNSM"] ?? "1.0.0"
-        cookieDict["osver"] = cookies["osver"] ?? osInfo.osver
-        cookieDict["deviceId"] = cookies["deviceId"] ?? deviceId
-        cookieDict["os"] = cookies["os"] ?? osInfo.os
-        cookieDict["channel"] = cookies["channel"] ?? osInfo.channel
-        cookieDict["appver"] = cookies["appver"] ?? osInfo.appver
+            var dict = _cookies
+            dict["__remember_me"] = "true"
+            dict["ntes_kaola_ad"] = "1"
+            dict["_ntes_nuid"] = nuid
+            dict["_ntes_nnid"] = nnid
+            dict["WNMCID"] = _cookies["WNMCID"] ?? wnmcid
+            dict["WEVNSM"] = _cookies["WEVNSM"] ?? "1.0.0"
+            dict["osver"] = _cookies["osver"] ?? osInfo.osver
+            dict["deviceId"] = _cookies["deviceId"] ?? deviceId
+            dict["os"] = _cookies["os"] ?? osInfo.os
+            dict["channel"] = _cookies["channel"] ?? osInfo.channel
+            dict["appver"] = _cookies["appver"] ?? osInfo.appver
 
-        // 非登录请求添加 NMTID
-        if !uri.contains("login") {
-            cookieDict["NMTID"] = SessionManager.generateRandomHex(count: 16)
-        }
+            if !uri.contains("login") {
+                dict["NMTID"] = SessionManager.generateRandomHex(count: 16)
+            }
 
-        // 匿名令牌回退：当无 MUSIC_U 时，使用匿名令牌作为 MUSIC_A
-        if cookieDict["MUSIC_U"] == nil {
-            cookieDict["MUSIC_A"] = cookieDict["MUSIC_A"] ?? anonymousToken
+            if dict["MUSIC_U"] == nil {
+                dict["MUSIC_A"] = dict["MUSIC_A"] ?? anonymousToken
+            }
+
+            return dict
         }
 
         return SessionManager.cookieDictToString(cookieDict)
@@ -177,58 +183,73 @@ public class SessionManager {
         let osInfo = SessionManager.osMap[platformType] ?? SessionManager.osMap[.pc]!
         let timestamp = Int(Date().timeIntervalSince1970)
 
-        var header: [String: String] = [
-            "osver": cookies["osver"] ?? osInfo.osver,
-            "deviceId": cookies["deviceId"] ?? deviceId,
-            "os": cookies["os"] ?? osInfo.os,
-            "appver": cookies["appver"] ?? osInfo.appver,
-            "versioncode": cookies["versioncode"] ?? "140",
-            "mobilename": cookies["mobilename"] ?? "",
-            "buildver": cookies["buildver"] ?? String(timestamp),
-            "resolution": cookies["resolution"] ?? "1920x1080",
-            "__csrf": csrfToken,
-            "channel": cookies["channel"] ?? osInfo.channel,
-            "requestId": SessionManager.generateRequestId(),
-        ]
+        // 整个读取操作在同一把锁内完成
+        return lock.withLock {
+            var header: [String: String] = [
+                "osver": _cookies["osver"] ?? osInfo.osver,
+                "deviceId": _cookies["deviceId"] ?? deviceId,
+                "os": _cookies["os"] ?? osInfo.os,
+                "appver": _cookies["appver"] ?? osInfo.appver,
+                "versioncode": _cookies["versioncode"] ?? "140",
+                "mobilename": _cookies["mobilename"] ?? "",
+                "buildver": _cookies["buildver"] ?? String(timestamp),
+                "resolution": _cookies["resolution"] ?? "1920x1080",
+                "__csrf": csrfToken,
+                "channel": _cookies["channel"] ?? osInfo.channel,
+                "requestId": SessionManager.generateRequestId(),
+            ]
 
-        // 添加认证令牌
-        if let musicU = cookies["MUSIC_U"] {
-            header["MUSIC_U"] = musicU
-        }
-        if let musicA = cookies["MUSIC_A"] {
-            header["MUSIC_A"] = musicA
-        } else if cookies["MUSIC_U"] == nil {
-            // 匿名令牌回退
-            header["MUSIC_A"] = anonymousToken
-        }
+            if let musicU = _cookies["MUSIC_U"] {
+                header["MUSIC_U"] = musicU
+            }
+            if let musicA = _cookies["MUSIC_A"] {
+                header["MUSIC_A"] = musicA
+            } else if _cookies["MUSIC_U"] == nil {
+                header["MUSIC_A"] = anonymousToken
+            }
 
-        return header
+            return header
+        }
     }
 
     /// 从响应的 Set-Cookie 头更新 Cookie 存储
     /// 解析 Set-Cookie 头字符串列表，提取键值对并更新存储
     /// - Parameter setCookieHeaders: Set-Cookie 头字符串数组
     public func updateCookies(from setCookieHeaders: [String]) {
-        for setCookie in setCookieHeaders {
-            // 移除 Domain 属性（匹配 Node.js 行为）
-            let cleaned = setCookie.replacingOccurrences(
-                of: "\\s*Domain=[^;]*;?",
-                with: "",
-                options: .regularExpression
-            )
-            // 提取第一个键值对（Set-Cookie 格式：key=value; attr1; attr2...）
-            let parts = cleaned.split(separator: ";", maxSplits: 1)
-            guard let firstPart = parts.first else { continue }
-            let keyValue = firstPart.split(separator: "=", maxSplits: 1)
-            guard keyValue.count == 2 else { continue }
-            let key = String(keyValue[0]).trimmingCharacters(in: .whitespaces)
-            let value = String(keyValue[1]).trimmingCharacters(in: .whitespaces)
+        // 防御：空数组直接返回
+        guard !setCookieHeaders.isEmpty else { return }
+        
+        // 将输入拷贝为局部不可变数组，避免任何外部引用问题
+        let headers = Array(setCookieHeaders)
+        
+        // 先在锁外完成所有解析（纯值类型操作）
+        var parsed: [(String, String)] = []
+        parsed.reserveCapacity(headers.count)
+        
+        for header in headers {
+            // 取分号前的第一段 key=value
+            let cookiePart: Substring
+            if let semicolonIdx = header.firstIndex(of: ";") {
+                cookiePart = header[header.startIndex..<semicolonIdx]
+            } else {
+                cookiePart = header[...]
+            }
+            
+            guard let eqIdx = cookiePart.firstIndex(of: "=") else { continue }
+            let key = String(cookiePart[cookiePart.startIndex..<eqIdx])
+                .trimmingCharacters(in: .whitespaces)
+            let value = String(cookiePart[cookiePart.index(after: eqIdx)...])
+                .trimmingCharacters(in: .whitespaces)
+            
             if !key.isEmpty {
-                cookies[key] = value
-                #if DEBUG
-                let preview = value.count > 30 ? String(value.prefix(30)) + "..." : value
-                print("[NCM] 🍪 Cookie 更新: \(key)=\(preview)")
-                #endif
+                parsed.append((key, value))
+            }
+        }
+        
+        // 一次性加锁批量写入
+        lock.withLock {
+            for (key, value) in parsed {
+                _cookies[key] = value
             }
         }
     }
@@ -260,8 +281,9 @@ public class SessionManager {
     /// - Returns: JSON 编码的 Data
     /// - Throws: 编码失败时抛出错误
     public func serialize() throws -> Data {
+        let snapshotCookies = lock.withLock { _cookies }
         let state = SessionState(
-            cookies: cookies,
+            cookies: snapshotCookies,
             platformType: platformType,
             anonymousToken: anonymousToken,
             deviceId: deviceId,
