@@ -1033,6 +1033,10 @@ enum RouteMap {
             // 实际上后端最终也是用 songs 参数调 API，所以兼容
             break
 
+        // top_song: SDK 传 areaId, 后端期望 type（后端内部再赋值给 areaId）
+        case "/api/v1/discovery/new/songs":
+            if let v = data["areaId"] { result["type"] = v }
+
         // top_list: 后端 idx 传了直接返回 500，不需要
 
         // aidj_content_rcmd: latitude/longitude 是可选的
