@@ -129,7 +129,7 @@ enum RouteMap {
         "/api/mlog/playlist/mylike/bytime/get": "/playlist/mylike",
         "/api/v4/detail": "/top/list",  // 注意：后端是 top_list.js
         "/api/playlist/v4/detail": "/top/list",
-        "/api/v6/playlist/detail": "/playlist/track/all",
+        "/api/v6/playlist/detail": "/playlist/detail",
 
         // 搜索
         "/api/search/voice/get": "/search",

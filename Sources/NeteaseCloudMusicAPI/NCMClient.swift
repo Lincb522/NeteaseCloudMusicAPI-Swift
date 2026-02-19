@@ -208,7 +208,49 @@ public class NCMClient {
         let statusCode = httpResponse?.statusCode ?? 200
         let ms = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
 
-        // 提取 Set-Cookie（使用 HTTPCookie 解析，避免 allHeaderFields 合并问题）
+        // 全局 5xx 服务端错误处理：自动重试一次
+        if statusCode >= 500 {
+            #if DEBUG
+            print("[NCM] ⚠️ 服务端错误 \(statusCode) \(route) [\(ms)ms]，1.5s 后重试...")
+            #endif
+            try await Task.sleep(nanoseconds: 1_500_000_000)
+            let (retryData, retryResponse) = try await URLSession.shared.data(for: urlRequest)
+            let retryHttp = retryResponse as? HTTPURLResponse
+            let retryStatus = retryHttp?.statusCode ?? 200
+            let retryMs = Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+
+            if retryStatus >= 500 {
+                #if DEBUG
+                print("[NCM] ❌ 重试仍失败 \(retryStatus) \(route) [\(retryMs)ms]")
+                #endif
+                let msg = (try? JSONSerialization.jsonObject(with: retryData) as? [String: Any])?["msg"] as? String
+                    ?? "服务端错误"
+                throw NCMError.networkError(statusCode: retryStatus, message: msg)
+            }
+
+            // 重试成功，用重试的响应继续
+            return try parseProxyResponse(
+                data: retryData, httpResponse: retryHttp,
+                statusCode: retryStatus, route: route, uri: uri, ms: retryMs
+            )
+        }
+
+        return try parseProxyResponse(
+            data: responseData, httpResponse: httpResponse,
+            statusCode: statusCode, route: route, uri: uri, ms: ms
+        )
+    }
+
+    /// 解析代理请求的响应
+    private func parseProxyResponse(
+        data responseData: Data,
+        httpResponse: HTTPURLResponse?,
+        statusCode: Int,
+        route: String,
+        uri: String,
+        ms: Int
+    ) throws -> APIResponse {
+        // 提取 Set-Cookie
         var setCookies: [String] = []
         if let httpResp = httpResponse,
            let respUrl = httpResp.url,
@@ -237,6 +279,12 @@ public class NCMClient {
             print("[NCM]    响应体: \(preview)\(jsonStr.count > 500 ? "..." : "")")
         }
         #endif
+
+        // 检查业务层错误码（非 HTTP 层，而是 JSON body 中的 code）
+        if let code = body["code"] as? Int, code >= 500 {
+            let msg = body["msg"] as? String ?? body["message"] as? String ?? "服务端错误"
+            throw NCMError.networkError(statusCode: code, message: msg)
+        }
 
         return APIResponse(status: statusCode, body: body, cookies: setCookies)
     }
