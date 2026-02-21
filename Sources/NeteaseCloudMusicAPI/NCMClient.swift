@@ -281,7 +281,8 @@ public class NCMClient {
         #endif
 
         // 检查业务层错误码（非 HTTP 层，而是 JSON body 中的 code）
-        if let code = body["code"] as? Int, code >= 500 {
+        // 注意：二维码登录状态码 800-803 不是错误，需要排除
+        if let code = body["code"] as? Int, code >= 500, !(800...803).contains(code) {
             let msg = body["msg"] as? String ?? body["message"] as? String ?? "服务端错误"
             throw NCMError.networkError(statusCode: code, message: msg)
         }
