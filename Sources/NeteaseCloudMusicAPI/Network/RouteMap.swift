@@ -1041,6 +1041,13 @@ enum RouteMap {
 
         // aidj_content_rcmd: latitude/longitude 是可选的
 
+        // banner: SDK 传 clientType="pc"/"iphone"等, 后端期望 type=0/1/2/3
+        case "/api/v2/banner/get":
+            if let ct = data["clientType"] as? String {
+                let typeMap = ["pc": 0, "android": 1, "iphone": 2, "ipad": 3]
+                result["type"] = typeMap[ct] ?? 0
+            }
+
         default:
             break
         }
