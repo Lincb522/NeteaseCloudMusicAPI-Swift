@@ -18,6 +18,9 @@ public class NCMClient {
     /// Node 后端服务地址（如 "http://localhost:3000"）
     /// 设置后所有请求走后端代理模式，不再由客户端加密直连网易云
     public var serverUrl: String?
+    
+    /// API 访问令牌，自动追加到后端代理请求的 URL 参数中
+    public var apiToken: String?
 
     /// 解灰管理器（可选）
     /// 设置后可通过 `autoUnblock` 开关自动解灰
@@ -161,7 +164,10 @@ public class NCMClient {
         // 适配后端模块期望的参数格式
         let adaptedData = RouteMap.adaptParams(uri, data)
         let base = serverUrl.hasSuffix("/") ? String(serverUrl.dropLast()) : serverUrl
-        let urlString = base + route
+        var urlString = base + route
+        if let token = apiToken, !token.isEmpty {
+            urlString += (urlString.contains("?") ? "&" : "?") + "token=\(token)"
+        }
 
         #if DEBUG
         print("[NCM] ➡️ PROXY POST \(urlString)")

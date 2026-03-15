@@ -403,6 +403,7 @@ enum RouteMap {
         "/api/user/creator/authinfo/get": "/creator/authinfo/get",
         "/api/comment/user/comment/history": "/user/comment/history",
         "/api/mcalendar/detail": "/calendar",
+        "/api/social/emoji/bff/home/detail": "/emoji/list",
     ]
 
 
